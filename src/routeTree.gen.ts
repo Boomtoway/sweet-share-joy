@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
+import { Route as ApiPublicBotWebhookMessageRouteImport } from './routes/api/public/bot.webhook.message'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -29,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedVpsRoute = AuthenticatedVpsRouteImport.update({
+  id: '/vps',
+  path: '/vps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -39,18 +46,28 @@ const AuthenticatedAiSettingsRoute = AuthenticatedAiSettingsRouteImport.update({
   path: '/ai-settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicBotWebhookMessageRoute =
+  ApiPublicBotWebhookMessageRouteImport.update({
+    id: '/api/public/bot/webhook/message',
+    path: '/api/public/bot/webhook/message',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/vps': typeof AuthenticatedVpsRoute
+  '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/vps': typeof AuthenticatedVpsRoute
+  '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +76,26 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/vps': typeof AuthenticatedVpsRoute
+  '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/ai-settings' | '/dashboard'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/ai-settings'
+    | '/dashboard'
+    | '/vps'
+    | '/api/public/bot/webhook/message'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/ai-settings' | '/dashboard'
+  to:
+    | '/'
+    | '/auth'
+    | '/ai-settings'
+    | '/dashboard'
+    | '/vps'
+    | '/api/public/bot/webhook/message'
   id:
     | '__root__'
     | '/'
@@ -72,12 +103,15 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/ai-settings'
     | '/_authenticated/dashboard'
+    | '/_authenticated/vps'
+    | '/api/public/bot/webhook/message'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicBotWebhookMessageRoute: typeof ApiPublicBotWebhookMessageRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -103,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/vps': {
+      id: '/_authenticated/vps'
+      path: '/vps'
+      fullPath: '/vps'
+      preLoaderRoute: typeof AuthenticatedVpsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -117,17 +158,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAiSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/bot/webhook/message': {
+      id: '/api/public/bot/webhook/message'
+      path: '/api/public/bot/webhook/message'
+      fullPath: '/api/public/bot/webhook/message'
+      preLoaderRoute: typeof ApiPublicBotWebhookMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiSettingsRoute: typeof AuthenticatedAiSettingsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAiSettingsRoute: AuthenticatedAiSettingsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedVpsRoute: AuthenticatedVpsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -137,7 +187,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicBotWebhookMessageRoute: ApiPublicBotWebhookMessageRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
