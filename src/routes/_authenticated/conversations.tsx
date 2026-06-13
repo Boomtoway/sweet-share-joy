@@ -49,14 +49,15 @@ interface Msg {
   created_at: string;
 }
 
+type LeadStage = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
 interface Lead {
   id: string;
-  stage: string;
+  stage: LeadStage;
   notes: string | null;
   value: number;
 }
 
-const STAGES = ["new", "contacted", "qualified", "proposal", "won", "lost"];
+const STAGES: LeadStage[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 
 function ConversationsPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
