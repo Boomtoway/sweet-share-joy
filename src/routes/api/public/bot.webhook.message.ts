@@ -75,6 +75,21 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             return new Response(JSON.stringify({ error: "contact failed" }), { status: 500, headers: cors });
           }
 
+          // Auto-create lead for new contact
+          const { data: existingLead } = await supabaseAdmin
+            .from("leads")
+            .select("id")
+            .eq("contact_id", contact.id)
+            .maybeSingle();
+          if (!existingLead) {
+            await supabaseAdmin.from("leads").insert({
+              workspace_id: body.workspace_id,
+              contact_id: contact.id,
+              source: "whatsapp",
+              stage: "new",
+            } as any);
+          }
+
           // Find/create conversation
           let { data: conv } = await supabaseAdmin
             .from("conversations")
