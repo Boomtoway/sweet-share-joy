@@ -55,7 +55,7 @@ const groups = [
     items: [
       { title: "Conversations", url: "/conversations", icon: Inbox },
       { title: "Leads", url: "/leads", icon: Users },
-      { title: "Human Takeover", url: "/takeover", icon: UserCheck },
+      { title: "Human Takeover", url: "/human-takeover", icon: UserCheck },
       { title: "Risk Control", url: "/risk", icon: ShieldAlert },
       { title: "VPS Bots", url: "/vps", icon: Server },
     ],
