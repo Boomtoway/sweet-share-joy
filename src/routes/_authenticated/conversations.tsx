@@ -298,7 +298,7 @@ function ConversationsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Lead stage</Label>
-                  <Select value={lead?.stage ?? "new"} onValueChange={(v) => updateLead({ stage: v })}>
+                  <Select value={lead?.stage ?? "new"} onValueChange={(v) => updateLead({ stage: v as LeadStage })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
