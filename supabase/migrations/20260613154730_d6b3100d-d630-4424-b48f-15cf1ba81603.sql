@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.owns_workspace(uuid) TO authenticated;
