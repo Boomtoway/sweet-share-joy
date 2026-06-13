@@ -64,12 +64,11 @@ const AuthenticatedInstagramRoute = AuthenticatedInstagramRouteImport.update({
   path: '/instagram',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedHumanTakeoverRoute =
-  AuthenticatedHumanTakeoverRouteImport.update({
-    id: '/human-takeover',
-    path: '/human-takeover',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
+const AuthenticatedHumanTakeoverRoute = AuthenticatedHumanTakeoverRouteImport.update({
+  id: '/human-takeover',
+  path: '/human-takeover',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
