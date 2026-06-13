@@ -18,7 +18,7 @@ const {
   LOVABLE_WEBHOOK_URL,
   WORKSPACE_ID,
   WEBHOOK_SECRET,
-  AUTH_DIR = './auth',
+  AUTH_DIR = './sessions',
 } = process.env;
 
 if (!API_TOKEN) throw new Error('API_TOKEN required');
