@@ -46,7 +46,7 @@ const groups = [
     label: "AI",
     items: [
       { title: "AI Agent Settings", url: "/ai-settings", icon: Bot },
-      { title: "Business Knowledge", url: "/knowledge", icon: BookOpen },
+      { title: "Business Knowledge", url: "/business-knowledge", icon: BookOpen },
       { title: "Reply Rules", url: "/reply-rules", icon: ListChecks },
     ],
   },
