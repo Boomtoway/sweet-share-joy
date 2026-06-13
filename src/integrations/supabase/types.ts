@@ -17,11 +17,19 @@ export type Database = {
       ai_settings: {
         Row: {
           auto_reply: boolean
+          business_tone: string
+          closing_script: string
           created_at: string
           enabled: boolean
+          faq_answers: string
+          followup_script: string
           id: string
           language: string
           model: string
+          objection_handling: string
+          personality: string
+          pricing_rules: string
+          sales_script: string
           system_prompt: string
           temperature: number
           tone: string
@@ -30,11 +38,19 @@ export type Database = {
         }
         Insert: {
           auto_reply?: boolean
+          business_tone?: string
+          closing_script?: string
           created_at?: string
           enabled?: boolean
+          faq_answers?: string
+          followup_script?: string
           id?: string
           language?: string
           model?: string
+          objection_handling?: string
+          personality?: string
+          pricing_rules?: string
+          sales_script?: string
           system_prompt?: string
           temperature?: number
           tone?: string
@@ -43,11 +59,19 @@ export type Database = {
         }
         Update: {
           auto_reply?: boolean
+          business_tone?: string
+          closing_script?: string
           created_at?: string
           enabled?: boolean
+          faq_answers?: string
+          followup_script?: string
           id?: string
           language?: string
           model?: string
+          objection_handling?: string
+          personality?: string
+          pricing_rules?: string
+          sales_script?: string
           system_prompt?: string
           temperature?: number
           tone?: string
