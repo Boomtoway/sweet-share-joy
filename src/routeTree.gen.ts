@@ -17,6 +17,7 @@ import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authentic
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInstagramRouteImport } from './routes/_authenticated/instagram'
+import { Route as AuthenticatedHumanTakeoverRouteImport } from './routes/_authenticated/human-takeover'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConversationsRouteImport } from './routes/_authenticated/conversations'
 import { Route as AuthenticatedBusinessKnowledgeRouteImport } from './routes/_authenticated/business-knowledge'
@@ -63,6 +64,12 @@ const AuthenticatedInstagramRoute = AuthenticatedInstagramRouteImport.update({
   path: '/instagram',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHumanTakeoverRoute =
+  AuthenticatedHumanTakeoverRouteImport.update({
+    id: '/human-takeover',
+    path: '/human-takeover',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -104,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
@@ -119,6 +127,7 @@ export interface FileRoutesByTo {
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
@@ -136,6 +145,7 @@ export interface FileRoutesById {
   '/_authenticated/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/_authenticated/conversations': typeof AuthenticatedConversationsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/_authenticated/instagram': typeof AuthenticatedInstagramRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | '/business-knowledge'
     | '/conversations'
     | '/dashboard'
+    | '/human-takeover'
     | '/instagram'
     | '/leads'
     | '/messenger'
@@ -168,6 +179,7 @@ export interface FileRouteTypes {
     | '/business-knowledge'
     | '/conversations'
     | '/dashboard'
+    | '/human-takeover'
     | '/instagram'
     | '/leads'
     | '/messenger'
@@ -184,6 +196,7 @@ export interface FileRouteTypes {
     | '/_authenticated/business-knowledge'
     | '/_authenticated/conversations'
     | '/_authenticated/dashboard'
+    | '/_authenticated/human-takeover'
     | '/_authenticated/instagram'
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
@@ -259,6 +272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInstagramRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/human-takeover': {
+      id: '/_authenticated/human-takeover'
+      path: '/human-takeover'
+      fullPath: '/human-takeover'
+      preLoaderRoute: typeof AuthenticatedHumanTakeoverRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -309,6 +329,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBusinessKnowledgeRoute: typeof AuthenticatedBusinessKnowledgeRoute
   AuthenticatedConversationsRoute: typeof AuthenticatedConversationsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedHumanTakeoverRoute: typeof AuthenticatedHumanTakeoverRoute
   AuthenticatedInstagramRoute: typeof AuthenticatedInstagramRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
@@ -321,6 +342,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBusinessKnowledgeRoute: AuthenticatedBusinessKnowledgeRoute,
   AuthenticatedConversationsRoute: AuthenticatedConversationsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedHumanTakeoverRoute: AuthenticatedHumanTakeoverRoute,
   AuthenticatedInstagramRoute: AuthenticatedInstagramRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
@@ -341,3 +363,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
