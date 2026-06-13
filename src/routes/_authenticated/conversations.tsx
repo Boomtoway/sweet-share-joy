@@ -1,0 +1,321 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Inbox, Loader2, Send } from "lucide-react";
+
+export const Route = createFileRoute("/_authenticated/conversations")({
+  component: ConversationsPage,
+  errorComponent: ({ error }) => <div className="p-6 text-destructive">{error.message}</div>,
+  notFoundComponent: () => <div className="p-6">Not found</div>,
+});
+
+type ChannelType = "whatsapp" | "messenger" | "instagram";
+type AiFilter = "all" | "ai" | "human";
+
+interface Conv {
+  id: string;
+  workspace_id: string;
+  contact_id: string | null;
+  channel_id: string | null;
+  status: string;
+  last_message_at: string | null;
+  unread_count: number;
+  contact: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    ai_enabled: boolean;
+    human_takeover: boolean;
+  } | null;
+  channel: { id: string; type: ChannelType; name: string } | null;
+}
+
+interface Msg {
+  id: string;
+  direction: "inbound" | "outbound";
+  sender: string;
+  body: string | null;
+  created_at: string;
+}
+
+type LeadStage = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
+interface Lead {
+  id: string;
+  stage: LeadStage;
+  notes: string | null;
+  value: number;
+}
+
+const STAGES: LeadStage[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
+
+function ConversationsPage() {
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [convs, setConvs] = useState<Conv[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const [channelFilter, setChannelFilter] = useState<"all" | ChannelType>("all");
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [aiFilter, setAiFilter] = useState<AiFilter>("all");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return;
+      const { data: profile } = await supabase.from("profiles").select("workspace_id").eq("id", auth.user.id).single();
+      if (profile?.workspace_id) setWorkspaceId(profile.workspace_id);
+    })();
+  }, []);
+
+  const loadConvs = async (wsId: string) => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("*, contact:contacts(id,name,phone,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
+      .eq("workspace_id", wsId)
+      .order("last_message_at", { ascending: false, nullsFirst: false });
+    setLoading(false);
+    if (error) { toast.error(error.message); return; }
+    setConvs((data ?? []) as any);
+  };
+
+  useEffect(() => { if (workspaceId) loadConvs(workspaceId); }, [workspaceId]);
+
+  const loadConversation = async (id: string) => {
+    setActiveId(id);
+    const [{ data: msgs }, conv] = await Promise.all([
+      supabase.from("messages").select("*").eq("conversation_id", id).order("created_at", { ascending: true }),
+      Promise.resolve(convs.find((c) => c.id === id)),
+    ]);
+    setMessages((msgs ?? []) as any);
+    if (conv?.contact_id) {
+      const { data: leadRow } = await supabase
+        .from("leads").select("id,stage,notes,value")
+        .eq("contact_id", conv.contact_id).maybeSingle();
+      setLead(leadRow as any);
+    } else setLead(null);
+    if (conv && conv.unread_count > 0) {
+      await supabase.from("conversations").update({ unread_count: 0 }).eq("id", id);
+      setConvs((cs) => cs.map((c) => (c.id === id ? { ...c, unread_count: 0 } : c)));
+    }
+  };
+
+  const filtered = useMemo(() => convs.filter((c) => {
+    if (channelFilter !== "all" && c.channel?.type !== channelFilter) return false;
+    if (unreadOnly && c.unread_count === 0) return false;
+    if (aiFilter === "ai" && !c.contact?.ai_enabled) return false;
+    if (aiFilter === "human" && c.contact?.ai_enabled) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const name = (c.contact?.name ?? "").toLowerCase();
+      const phone = (c.contact?.phone ?? "").toLowerCase();
+      if (!name.includes(q) && !phone.includes(q)) return false;
+    }
+    return true;
+  }), [convs, channelFilter, unreadOnly, aiFilter, search]);
+
+  const active = convs.find((c) => c.id === activeId) ?? null;
+
+  const sendReply = async () => {
+    if (!active || !reply.trim() || !workspaceId) return;
+    setSending(true);
+    const { data, error } = await supabase.from("messages").insert({
+      workspace_id: workspaceId,
+      conversation_id: active.id,
+      direction: "outbound",
+      sender: "human",
+      body: reply.trim(),
+    }).select().single();
+    setSending(false);
+    if (error) { toast.error(error.message); return; }
+    await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", active.id);
+    setMessages((m) => [...m, data as any]);
+    setReply("");
+    toast.success("Message sent");
+  };
+
+  const toggleAi = async (enabled: boolean) => {
+    if (!active?.contact) return;
+    const { error } = await supabase.from("contacts")
+      .update({ ai_enabled: enabled, human_takeover: !enabled })
+      .eq("id", active.contact.id);
+    if (error) { toast.error(error.message); return; }
+    setConvs((cs) => cs.map((c) => c.id === active.id && c.contact
+      ? { ...c, contact: { ...c.contact, ai_enabled: enabled, human_takeover: !enabled } } : c));
+  };
+
+  const updateLead = async (patch: Partial<Lead>) => {
+    if (!active?.contact_id || !workspaceId) return;
+    if (lead) {
+      const { data, error } = await supabase.from("leads").update(patch).eq("id", lead.id).select().single();
+      if (error) { toast.error(error.message); return; }
+      setLead(data as any);
+    } else {
+      const { data, error } = await supabase.from("leads").insert({
+        workspace_id: workspaceId, contact_id: active.contact_id, stage: patch.stage ?? "new", notes: patch.notes ?? null,
+      }).select().single();
+      if (error) { toast.error(error.message); return; }
+      setLead(data as any);
+    }
+    toast.success("Lead updated");
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-4rem)] flex-col p-4 gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input placeholder="Search name or phone" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64" />
+        <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as any)}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All channels</SelectItem>
+            <SelectItem value="whatsapp">WhatsApp</SelectItem>
+            <SelectItem value="messenger">Messenger</SelectItem>
+            <SelectItem value="instagram">Instagram</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={aiFilter} onValueChange={(v) => setAiFilter(v as AiFilter)}>
+          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">AI & Human</SelectItem>
+            <SelectItem value="ai">AI mode</SelectItem>
+            <SelectItem value="human">Human mode</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Switch id="unread" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
+          <Label htmlFor="unread">Unread only</Label>
+        </div>
+      </div>
+
+      <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-[280px_1fr_300px] gap-4">
+        <Card className="flex flex-col min-h-0">
+          <CardHeader className="py-3"><CardTitle className="text-sm">Conversations</CardTitle></CardHeader>
+          <CardContent className="flex-1 min-h-0 p-0">
+            <ScrollArea className="h-full">
+              {loading ? (
+                <div className="flex items-center justify-center p-6"><Loader2 className="h-4 w-4 animate-spin" /></div>
+              ) : filtered.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  <Inbox className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                  No conversations yet. Connect a channel to start receiving messages.
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {filtered.map((c) => (
+                    <li key={c.id}>
+                      <button onClick={() => loadConversation(c.id)}
+                        className={`w-full p-3 text-left hover:bg-accent ${activeId === c.id ? "bg-accent" : ""}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium truncate">{c.contact?.name ?? c.contact?.phone ?? "Unknown"}</span>
+                          {c.unread_count > 0 && <Badge variant="default">{c.unread_count}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{c.channel?.type ?? "—"}</span>
+                          {c.contact?.phone && <span>· {c.contact.phone}</span>}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col min-h-0">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm">
+              {active ? (active.contact?.name ?? active.contact?.phone ?? "Conversation") : "Select a conversation"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex-1 min-h-0 flex flex-col p-0">
+            <ScrollArea className="flex-1 p-4">
+              {!active ? (
+                <div className="text-sm text-muted-foreground">Pick a conversation to view messages.</div>
+              ) : messages.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No messages yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {messages.map((m) => (
+                    <div key={m.id} className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                        m.direction === "outbound"
+                          ? m.sender === "ai" ? "bg-primary/20 text-foreground" : "bg-primary text-primary-foreground"
+                          : "bg-muted"}`}>
+                        <div className="text-[10px] opacity-70 mb-0.5">{m.sender}</div>
+                        <div className="whitespace-pre-wrap">{m.body}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            {active && (
+              <div className="border-t p-3 flex gap-2">
+                <Textarea value={reply} onChange={(e) => setReply(e.target.value)}
+                  placeholder="Type a reply…" rows={2} className="resize-none" />
+                <Button onClick={sendReply} disabled={sending || !reply.trim()}>
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="flex flex-col min-h-0">
+          <CardHeader className="py-3"><CardTitle className="text-sm">Contact & Lead</CardTitle></CardHeader>
+          <CardContent className="flex-1 min-h-0 overflow-auto space-y-4 text-sm">
+            {!active ? (
+              <p className="text-muted-foreground">No conversation selected.</p>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <div><span className="text-muted-foreground">Name: </span>{active.contact?.name ?? "—"}</div>
+                  <div><span className="text-muted-foreground">Phone: </span>{active.contact?.phone ?? "—"}</div>
+                  <div><span className="text-muted-foreground">Email: </span>{active.contact?.email ?? "—"}</div>
+                  <div><span className="text-muted-foreground">Channel: </span>{active.channel?.type ?? "—"}</div>
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-2">
+                  <Label htmlFor="ai-toggle">AI mode</Label>
+                  <Switch id="ai-toggle" checked={!!active.contact?.ai_enabled}
+                    onCheckedChange={toggleAi} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Lead stage</Label>
+                  <Select value={lead?.stage ?? "new"} onValueChange={(v) => updateLead({ stage: v as LeadStage })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea value={lead?.notes ?? ""} rows={4}
+                    onChange={(e) => setLead((l) => l ? { ...l, notes: e.target.value } : { id: "", stage: "new", notes: e.target.value, value: 0 })} />
+                  <Button size="sm" onClick={() => updateLead({ notes: lead?.notes ?? "" })}>Save notes</Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
