@@ -126,7 +126,7 @@ function HumanTakeoverPage() {
     const c = convs.find((x) => x.id === id);
     if (c?.contact_id) await supabase.from("contacts").update({ ai_enabled: true, human_takeover: false }).eq("id", c.contact_id);
     await patchConv(id, { status: "open", assigned_to: null } as any);
-    toast.success("Released back to AI");
+    toast.success("Returned to AI");
   };
   const pauseAi = async (id: string) => {
     const c = convs.find((x) => x.id === id);
@@ -214,7 +214,7 @@ function HumanTakeoverPage() {
                       <div className="flex flex-wrap gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
                         <Button size="sm" onClick={() => takeOver(c.id)}><UserCheck className="h-3 w-3 mr-1" />Take over</Button>
                         <Button size="sm" variant="outline" onClick={() => pauseAi(c.id)}><Pause className="h-3 w-3 mr-1" />Pause AI</Button>
-                        <Button size="sm" variant="outline" onClick={() => release(c.id)}><Bot className="h-3 w-3 mr-1" />Release to AI</Button>
+                        <Button size="sm" variant="outline" onClick={() => release(c.id)}><Bot className="h-3 w-3 mr-1" />Return to AI</Button>
                         <Button size="sm" variant="ghost" onClick={() => resolve(c.id)}>Resolve</Button>
                         <Select value={c.assigned_to ?? ""} onValueChange={(v) => assign(c.id, v)}>
                           <SelectTrigger className="h-8 w-44 text-xs"><SelectValue placeholder="Assign to…" /></SelectTrigger>

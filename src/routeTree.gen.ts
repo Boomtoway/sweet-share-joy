@@ -12,7 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/risk'
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
@@ -20,6 +23,7 @@ import { Route as AuthenticatedInstagramRouteImport } from './routes/_authentica
 import { Route as AuthenticatedHumanTakeoverRouteImport } from './routes/_authenticated/human-takeover'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConversationsRouteImport } from './routes/_authenticated/conversations'
+import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedBusinessKnowledgeRouteImport } from './routes/_authenticated/business-knowledge'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta.webhook'
@@ -39,9 +43,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
+  id: '/whatsapp',
+  path: '/whatsapp',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedVpsRoute = AuthenticatedVpsRouteImport.update({
   id: '/vps',
   path: '/vps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRiskRoute = AuthenticatedRiskRouteImport.update({
+  id: '/risk',
+  path: '/risk',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedReplyRulesRoute = AuthenticatedReplyRulesRouteImport.update({
@@ -81,6 +100,11 @@ const AuthenticatedConversationsRoute =
     path: '/conversations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedChannelsRoute = AuthenticatedChannelsRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedBusinessKnowledgeRoute =
   AuthenticatedBusinessKnowledgeRouteImport.update({
     id: '/business-knowledge',
@@ -109,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
+  '/channels': typeof AuthenticatedChannelsRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
@@ -116,7 +141,10 @@ export interface FileRoutesByFullPath {
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/risk': typeof AuthenticatedRiskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -125,6 +153,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
+  '/channels': typeof AuthenticatedChannelsRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
@@ -132,7 +161,10 @@ export interface FileRoutesByTo {
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/risk': typeof AuthenticatedRiskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
+  '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -143,6 +175,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/_authenticated/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
+  '/_authenticated/channels': typeof AuthenticatedChannelsRoute
   '/_authenticated/conversations': typeof AuthenticatedConversationsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/human-takeover': typeof AuthenticatedHumanTakeoverRoute
@@ -150,7 +183,10 @@ export interface FileRoutesById {
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/_authenticated/risk': typeof AuthenticatedRiskRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
+  '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -161,6 +197,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/ai-settings'
     | '/business-knowledge'
+    | '/channels'
     | '/conversations'
     | '/dashboard'
     | '/human-takeover'
@@ -168,7 +205,10 @@ export interface FileRouteTypes {
     | '/leads'
     | '/messenger'
     | '/reply-rules'
+    | '/risk'
+    | '/settings'
     | '/vps'
+    | '/whatsapp'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesByTo: FileRoutesByTo
@@ -177,6 +217,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/ai-settings'
     | '/business-knowledge'
+    | '/channels'
     | '/conversations'
     | '/dashboard'
     | '/human-takeover'
@@ -184,7 +225,10 @@ export interface FileRouteTypes {
     | '/leads'
     | '/messenger'
     | '/reply-rules'
+    | '/risk'
+    | '/settings'
     | '/vps'
+    | '/whatsapp'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   id:
@@ -194,6 +238,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/ai-settings'
     | '/_authenticated/business-knowledge'
+    | '/_authenticated/channels'
     | '/_authenticated/conversations'
     | '/_authenticated/dashboard'
     | '/_authenticated/human-takeover'
@@ -201,7 +246,10 @@ export interface FileRouteTypes {
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
     | '/_authenticated/reply-rules'
+    | '/_authenticated/risk'
+    | '/_authenticated/settings'
     | '/_authenticated/vps'
+    | '/_authenticated/whatsapp'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesById: FileRoutesById
@@ -237,11 +285,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/whatsapp': {
+      id: '/_authenticated/whatsapp'
+      path: '/whatsapp'
+      fullPath: '/whatsapp'
+      preLoaderRoute: typeof AuthenticatedWhatsappRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/vps': {
       id: '/_authenticated/vps'
       path: '/vps'
       fullPath: '/vps'
       preLoaderRoute: typeof AuthenticatedVpsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/risk': {
+      id: '/_authenticated/risk'
+      path: '/risk'
+      fullPath: '/risk'
+      preLoaderRoute: typeof AuthenticatedRiskRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reply-rules': {
@@ -293,6 +362,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConversationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/channels': {
+      id: '/_authenticated/channels'
+      path: '/channels'
+      fullPath: '/channels'
+      preLoaderRoute: typeof AuthenticatedChannelsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/business-knowledge': {
       id: '/_authenticated/business-knowledge'
       path: '/business-knowledge'
@@ -327,6 +403,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiSettingsRoute: typeof AuthenticatedAiSettingsRoute
   AuthenticatedBusinessKnowledgeRoute: typeof AuthenticatedBusinessKnowledgeRoute
+  AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
   AuthenticatedConversationsRoute: typeof AuthenticatedConversationsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedHumanTakeoverRoute: typeof AuthenticatedHumanTakeoverRoute
@@ -334,12 +411,16 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
+  AuthenticatedRiskRoute: typeof AuthenticatedRiskRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
+  AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAiSettingsRoute: AuthenticatedAiSettingsRoute,
   AuthenticatedBusinessKnowledgeRoute: AuthenticatedBusinessKnowledgeRoute,
+  AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
   AuthenticatedConversationsRoute: AuthenticatedConversationsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedHumanTakeoverRoute: AuthenticatedHumanTakeoverRoute,
@@ -347,7 +428,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
+  AuthenticatedRiskRoute: AuthenticatedRiskRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
+  AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
