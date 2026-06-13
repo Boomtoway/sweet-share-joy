@@ -56,6 +56,30 @@ function VpsPage() {
     if (cfg) setForm(cfg);
   }, [cfg]);
 
+  // Auto-poll status + QR while not connected
+  useEffect(() => {
+    if (!form?.vps_endpoint || !form?.vps_api_token) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const s: any = await status();
+        if (cancelled) return;
+        setStatusInfo(s);
+        if (s?.status !== "connected" && s?.has_qr) {
+          const r: any = await qr();
+          if (!cancelled) setQrData(typeof r === "string" ? r : r?.qr ?? null);
+        }
+        if (s?.status === "connected") setQrData(null);
+      } catch {}
+    };
+    tick();
+    const id = setInterval(tick, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [form?.vps_endpoint, form?.vps_api_token, status, qr]);
+
   const run = async (label: string, fn: () => Promise<any>) => {
     setBusy(label);
     try {
@@ -122,6 +146,12 @@ function VpsPage() {
             External Node.js + Baileys WhatsApp bot. Lovable connects via REST.
           </p>
         </div>
+        <Badge
+          variant={statusInfo?.status === "connected" ? "default" : "outline"}
+          className="ml-auto capitalize"
+        >
+          {statusInfo?.status ?? "unknown"}
+        </Badge>
       </div>
 
       <Card>
