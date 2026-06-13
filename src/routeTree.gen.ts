@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
+import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedInstagramRouteImport } from './routes/_authenticated/instagram'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -38,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthenticatedVpsRoute = AuthenticatedVpsRouteImport.update({
   id: '/vps',
   path: '/vps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReplyRulesRoute = AuthenticatedReplyRulesRouteImport.update({
+  id: '/reply-rules',
+  path: '/reply-rules',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMessengerRoute = AuthenticatedMessengerRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/instagram': typeof AuthenticatedInstagramRoute
   '/messenger': typeof AuthenticatedMessengerRoute
+  '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/instagram': typeof AuthenticatedInstagramRoute
   '/messenger': typeof AuthenticatedMessengerRoute
+  '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/instagram': typeof AuthenticatedInstagramRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
+  '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/instagram'
     | '/messenger'
+    | '/reply-rules'
     | '/vps'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/instagram'
     | '/messenger'
+    | '/reply-rules'
     | '/vps'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/instagram'
     | '/_authenticated/messenger'
+    | '/_authenticated/reply-rules'
     | '/_authenticated/vps'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
@@ -192,6 +204,13 @@ declare module '@tanstack/react-router' {
       path: '/vps'
       fullPath: '/vps'
       preLoaderRoute: typeof AuthenticatedVpsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reply-rules': {
+      id: '/_authenticated/reply-rules'
+      path: '/reply-rules'
+      fullPath: '/reply-rules'
+      preLoaderRoute: typeof AuthenticatedReplyRulesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/messenger': {
@@ -252,6 +271,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInstagramRoute: typeof AuthenticatedInstagramRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
+  AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
 }
 
@@ -261,6 +281,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInstagramRoute: AuthenticatedInstagramRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
+  AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
 }
 

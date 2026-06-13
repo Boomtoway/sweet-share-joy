@@ -17,65 +17,98 @@ export type Database = {
       ai_settings: {
         Row: {
           auto_reply: boolean
+          blacklist_numbers: string[]
+          business_hours_only: boolean
           business_tone: string
           closing_script: string
           created_at: string
+          daily_message_limit: number
           enabled: boolean
           faq_answers: string
           followup_script: string
+          human_keywords: string[]
           id: string
           language: string
+          max_reply_delay_seconds: number
+          min_reply_delay_seconds: number
           model: string
           objection_handling: string
           personality: string
           pricing_rules: string
           sales_script: string
+          spam_protection: boolean
+          stop_after_appointment: boolean
+          stop_on_human_reply: boolean
+          stop_on_human_request: boolean
           system_prompt: string
           temperature: number
           tone: string
           updated_at: string
+          whitelist_numbers: string[]
           workspace_id: string
         }
         Insert: {
           auto_reply?: boolean
+          blacklist_numbers?: string[]
+          business_hours_only?: boolean
           business_tone?: string
           closing_script?: string
           created_at?: string
+          daily_message_limit?: number
           enabled?: boolean
           faq_answers?: string
           followup_script?: string
+          human_keywords?: string[]
           id?: string
           language?: string
+          max_reply_delay_seconds?: number
+          min_reply_delay_seconds?: number
           model?: string
           objection_handling?: string
           personality?: string
           pricing_rules?: string
           sales_script?: string
+          spam_protection?: boolean
+          stop_after_appointment?: boolean
+          stop_on_human_reply?: boolean
+          stop_on_human_request?: boolean
           system_prompt?: string
           temperature?: number
           tone?: string
           updated_at?: string
+          whitelist_numbers?: string[]
           workspace_id: string
         }
         Update: {
           auto_reply?: boolean
+          blacklist_numbers?: string[]
+          business_hours_only?: boolean
           business_tone?: string
           closing_script?: string
           created_at?: string
+          daily_message_limit?: number
           enabled?: boolean
           faq_answers?: string
           followup_script?: string
+          human_keywords?: string[]
           id?: string
           language?: string
+          max_reply_delay_seconds?: number
+          min_reply_delay_seconds?: number
           model?: string
           objection_handling?: string
           personality?: string
           pricing_rules?: string
           sales_script?: string
+          spam_protection?: boolean
+          stop_after_appointment?: boolean
+          stop_on_human_reply?: boolean
+          stop_on_human_request?: boolean
           system_prompt?: string
           temperature?: number
           tone?: string
           updated_at?: string
+          whitelist_numbers?: string[]
           workspace_id?: string
         }
         Relationships: [
