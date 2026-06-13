@@ -57,7 +57,7 @@ const groups = [
       { title: "Leads", url: "/leads", icon: Users },
       { title: "Human Takeover", url: "/takeover", icon: UserCheck },
       { title: "Risk Control", url: "/risk", icon: ShieldAlert },
-      { title: "VPS Bots", url: "/bots", icon: Server },
+      { title: "VPS Bots", url: "/vps", icon: Server },
     ],
   },
   {

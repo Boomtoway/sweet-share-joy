@@ -264,11 +264,15 @@ export type Database = {
       }
       contacts: {
         Row: {
+          ai_enabled: boolean
           channel: Database["public"]["Enums"]["channel_type"] | null
           created_at: string
           email: string | null
           external_id: string | null
+          human_takeover: boolean
           id: string
+          is_blacklisted: boolean
+          is_whitelisted: boolean
           name: string | null
           phone: string | null
           tags: string[]
@@ -276,11 +280,15 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          ai_enabled?: boolean
           channel?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string
           email?: string | null
           external_id?: string | null
+          human_takeover?: boolean
           id?: string
+          is_blacklisted?: boolean
+          is_whitelisted?: boolean
           name?: string | null
           phone?: string | null
           tags?: string[]
@@ -288,11 +296,15 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          ai_enabled?: boolean
           channel?: Database["public"]["Enums"]["channel_type"] | null
           created_at?: string
           email?: string | null
           external_id?: string | null
+          human_takeover?: boolean
           id?: string
+          is_blacklisted?: boolean
+          is_whitelisted?: boolean
           name?: string | null
           phone?: string | null
           tags?: string[]
@@ -700,42 +712,72 @@ export type Database = {
       }
       whatsapp_sessions: {
         Row: {
+          ai_enabled: boolean
           channel_id: string | null
+          counter_date: string
           created_at: string
+          daily_limit: number
           device_name: string | null
+          facebook_lead_only: boolean
           id: string
           last_seen_at: string | null
+          list_mode: string
+          max_delay_seconds: number
+          messages_today: number
+          min_delay_seconds: number
           phone_number: string | null
           qr_code: string | null
           status: Database["public"]["Enums"]["channel_status"]
           updated_at: string
+          vps_api_token: string | null
           vps_endpoint: string | null
+          webhook_secret: string
           workspace_id: string
         }
         Insert: {
+          ai_enabled?: boolean
           channel_id?: string | null
+          counter_date?: string
           created_at?: string
+          daily_limit?: number
           device_name?: string | null
+          facebook_lead_only?: boolean
           id?: string
           last_seen_at?: string | null
+          list_mode?: string
+          max_delay_seconds?: number
+          messages_today?: number
+          min_delay_seconds?: number
           phone_number?: string | null
           qr_code?: string | null
           status?: Database["public"]["Enums"]["channel_status"]
           updated_at?: string
+          vps_api_token?: string | null
           vps_endpoint?: string | null
+          webhook_secret?: string
           workspace_id: string
         }
         Update: {
+          ai_enabled?: boolean
           channel_id?: string | null
+          counter_date?: string
           created_at?: string
+          daily_limit?: number
           device_name?: string | null
+          facebook_lead_only?: boolean
           id?: string
           last_seen_at?: string | null
+          list_mode?: string
+          max_delay_seconds?: number
+          messages_today?: number
+          min_delay_seconds?: number
           phone_number?: string | null
           qr_code?: string | null
           status?: Database["public"]["Enums"]["channel_status"]
           updated_at?: string
+          vps_api_token?: string | null
           vps_endpoint?: string | null
+          webhook_secret?: string
           workspace_id?: string
         }
         Relationships: [
