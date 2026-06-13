@@ -176,8 +176,9 @@ export const sendMetaMessage = createServerFn({ method: "POST" })
     // POST https://graph.facebook.com/v19.0/me/messages with page access token.
     await context.supabase.from("bot_logs").insert({
       workspace_id: await getWorkspaceId(context.supabase, context.userId),
+      bot_name: "meta-sender",
+      channel: data.kind,
       level: "info",
-      source: data.kind,
       message: `[placeholder] send to ${data.recipient_id}: ${data.message.slice(0, 80)}`,
     } as any);
     return { ok: true, queued: true };
