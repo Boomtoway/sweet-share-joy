@@ -14,6 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/risk'
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
@@ -49,6 +51,16 @@ const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
 const AuthenticatedVpsRoute = AuthenticatedVpsRouteImport.update({
   id: '/vps',
   path: '/vps',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRiskRoute = AuthenticatedRiskRouteImport.update({
+  id: '/risk',
+  path: '/risk',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedReplyRulesRoute = AuthenticatedReplyRulesRouteImport.update({
@@ -129,6 +141,8 @@ export interface FileRoutesByFullPath {
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/risk': typeof AuthenticatedRiskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -147,6 +161,8 @@ export interface FileRoutesByTo {
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/risk': typeof AuthenticatedRiskRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -167,6 +183,8 @@ export interface FileRoutesById {
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
+  '/_authenticated/risk': typeof AuthenticatedRiskRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -187,6 +205,8 @@ export interface FileRouteTypes {
     | '/leads'
     | '/messenger'
     | '/reply-rules'
+    | '/risk'
+    | '/settings'
     | '/vps'
     | '/whatsapp'
     | '/api/public/meta/webhook'
@@ -205,6 +225,8 @@ export interface FileRouteTypes {
     | '/leads'
     | '/messenger'
     | '/reply-rules'
+    | '/risk'
+    | '/settings'
     | '/vps'
     | '/whatsapp'
     | '/api/public/meta/webhook'
@@ -224,6 +246,8 @@ export interface FileRouteTypes {
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
     | '/_authenticated/reply-rules'
+    | '/_authenticated/risk'
+    | '/_authenticated/settings'
     | '/_authenticated/vps'
     | '/_authenticated/whatsapp'
     | '/api/public/meta/webhook'
@@ -273,6 +297,20 @@ declare module '@tanstack/react-router' {
       path: '/vps'
       fullPath: '/vps'
       preLoaderRoute: typeof AuthenticatedVpsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/risk': {
+      id: '/_authenticated/risk'
+      path: '/risk'
+      fullPath: '/risk'
+      preLoaderRoute: typeof AuthenticatedRiskRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/reply-rules': {
@@ -373,6 +411,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
+  AuthenticatedRiskRoute: typeof AuthenticatedRiskRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
 }
@@ -388,6 +428,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
+  AuthenticatedRiskRoute: AuthenticatedRiskRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
 }
