@@ -468,34 +468,67 @@ export type Database = {
       }
       leads: {
         Row: {
+          ai_summary: string | null
+          appointment_date: string | null
+          assigned_to: string | null
+          budget: string | null
+          business_name: string | null
           contact_id: string | null
           created_at: string
+          email: string | null
           id: string
+          lead_score: number
+          name: string | null
           notes: string | null
+          phone: string | null
+          service_interest: string | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
+          status: string
           updated_at: string
           value: number
           workspace_id: string
         }
         Insert: {
+          ai_summary?: string | null
+          appointment_date?: string | null
+          assigned_to?: string | null
+          budget?: string | null
+          business_name?: string | null
           contact_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          lead_score?: number
+          name?: string | null
           notes?: string | null
+          phone?: string | null
+          service_interest?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
+          status?: string
           updated_at?: string
           value?: number
           workspace_id: string
         }
         Update: {
+          ai_summary?: string | null
+          appointment_date?: string | null
+          assigned_to?: string | null
+          budget?: string | null
+          business_name?: string | null
           contact_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
+          lead_score?: number
+          name?: string | null
           notes?: string | null
+          phone?: string | null
+          service_interest?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
+          status?: string
           updated_at?: string
           value?: number
           workspace_id?: string
@@ -878,6 +911,8 @@ export type Database = {
         | "proposal"
         | "won"
         | "lost"
+        | "interested"
+        | "appointment_booked"
       message_direction: "inbound" | "outbound"
       message_sender: "contact" | "ai" | "human" | "system"
       risk_severity: "low" | "medium" | "high" | "critical"
@@ -1018,7 +1053,16 @@ export const Constants = {
       channel_status: ["disconnected", "connecting", "connected", "error"],
       channel_type: ["whatsapp", "messenger", "instagram"],
       conversation_status: ["open", "snoozed", "closed", "human"],
-      lead_stage: ["new", "contacted", "qualified", "proposal", "won", "lost"],
+      lead_stage: [
+        "new",
+        "contacted",
+        "qualified",
+        "proposal",
+        "won",
+        "lost",
+        "interested",
+        "appointment_booked",
+      ],
       message_direction: ["inbound", "outbound"],
       message_sender: ["contact", "ai", "human", "system"],
       risk_severity: ["low", "medium", "high", "critical"],
