@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
+import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedInstagramRouteImport } from './routes/_authenticated/instagram'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConversationsRouteImport } from './routes/_authenticated/conversations'
@@ -50,6 +51,11 @@ const AuthenticatedReplyRulesRoute = AuthenticatedReplyRulesRouteImport.update({
 const AuthenticatedMessengerRoute = AuthenticatedMessengerRouteImport.update({
   id: '/messenger',
   path: '/messenger',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInstagramRoute = AuthenticatedInstagramRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/vps': typeof AuthenticatedVpsRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/conversations': typeof AuthenticatedConversationsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/vps': typeof AuthenticatedVpsRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/_authenticated/conversations': typeof AuthenticatedConversationsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/instagram': typeof AuthenticatedInstagramRoute
+  '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/conversations'
     | '/dashboard'
     | '/instagram'
+    | '/leads'
     | '/messenger'
     | '/reply-rules'
     | '/vps'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/conversations'
     | '/dashboard'
     | '/instagram'
+    | '/leads'
     | '/messenger'
     | '/reply-rules'
     | '/vps'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/_authenticated/conversations'
     | '/_authenticated/dashboard'
     | '/_authenticated/instagram'
+    | '/_authenticated/leads'
     | '/_authenticated/messenger'
     | '/_authenticated/reply-rules'
     | '/_authenticated/vps'
@@ -231,6 +243,13 @@ declare module '@tanstack/react-router' {
       path: '/messenger'
       fullPath: '/messenger'
       preLoaderRoute: typeof AuthenticatedMessengerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/leads': {
+      id: '/_authenticated/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof AuthenticatedLeadsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/instagram': {
@@ -291,6 +310,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConversationsRoute: typeof AuthenticatedConversationsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedInstagramRoute: typeof AuthenticatedInstagramRoute
+  AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
@@ -302,6 +322,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConversationsRoute: AuthenticatedConversationsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedInstagramRoute: AuthenticatedInstagramRoute,
+  AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
@@ -320,3 +341,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
