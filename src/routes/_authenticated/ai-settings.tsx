@@ -238,6 +238,53 @@ function AiSettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Last AI errors</span>
+            <Button size="sm" variant="outline" onClick={() => refetchErrors()}>
+              Refresh
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Most recent warnings/errors from the WhatsApp AI pipeline (auto-refreshes every 10s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!errorsData?.errors?.length ? (
+            <p className="text-sm text-muted-foreground">No recent errors. 🎉</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {errorsData.errors.map((e: any, i: number) => (
+                <li key={i} className="rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={
+                        "rounded px-2 py-0.5 text-xs font-semibold " +
+                        (e.level === "error"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400")
+                      }
+                    >
+                      {e.level}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(e.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="mt-1 font-medium">{e.message}</div>
+                  {e.metadata && Object.keys(e.metadata).length > 0 && (
+                    <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted/40 p-2 text-xs">
+                      {JSON.stringify(e.metadata, null, 2)}
+                    </pre>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+
+        <CardHeader>
           <CardTitle>Sales playbook</CardTitle>
           <CardDescription>Edit how the agent talks, sells, and closes</CardDescription>
         </CardHeader>
