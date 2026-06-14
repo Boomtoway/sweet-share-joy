@@ -221,7 +221,13 @@ app.post('/send', async (req, res) => {
     const { to, message } = req.body ?? {};
     if (!to || !message) return res.status(400).json({ error: 'to and message required' });
     if (connState !== 'connected') return res.status(409).json({ error: 'not connected' });
-    const jid = String(to).trim();
+    let recipient = String(to).trim();
+    if (!recipient.includes('@s.whatsapp.net')) {
+      let digits = recipient.replace(/\D/g, '');
+      if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
+      recipient = `${digits}@s.whatsapp.net`;
+    }
+    const jid = recipient;
     if (!/^[^@\s]+@s\.whatsapp\.net$/i.test(jid)) {
       log.error({ to }, 'blocked invalid whatsapp recipient');
       return res.status(400).json({ error: 'invalid whatsapp recipient' });

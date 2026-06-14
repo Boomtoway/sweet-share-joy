@@ -21,6 +21,7 @@ const cors = {
 };
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const TEST_VPS_RECIPIENT = "94740123466";
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 
@@ -49,16 +50,6 @@ function normalizeLkPhone(value: unknown): string | null {
 function normalizeLkPhoneToJid(value: unknown): string | null {
   const phone = normalizeLkPhone(value);
   return phone ? `${phone}@s.whatsapp.net` : null;
-}
-
-function normalizeWhatsAppRecipient(value: unknown): string | null {
-  let raw = String(value ?? "").trim();
-  if (!raw) return null;
-  raw = raw.replace(/^mailto:/i, "").replace(/@s\.whatsapp\.net$/i, "");
-  let digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("0")) digits = `94${digits.slice(1)}`;
-  return digits;
 }
 
 function jidUser(jid: string) {
@@ -702,28 +693,14 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via the direct VPS /send endpoint to the resolved inbound sender.
+    // Emergency test send path: always call the direct VPS /send endpoint with the hardcoded recipient.
     if (!session.vps_api_token) {
       const err = "VPS token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    const to = normalizeWhatsAppRecipient(
-      conversation.remote_jid || contact.remote_jid || contact.phone || remoteJid || fromPhone,
-    );
-    if (!to) {
-      const err = "No WhatsApp recipient found for auto reply";
-      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {
-        conversation_remote_jid: conversation.remote_jid,
-        contact_remote_jid: contact.remote_jid,
-        contact_phone: contact.phone,
-        remote_jid: remoteJid,
-        from_phone: fromPhone,
-      }, "error");
-      await markFailed(err);
-      return;
-    }
+    const to = TEST_VPS_RECIPIENT;
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
