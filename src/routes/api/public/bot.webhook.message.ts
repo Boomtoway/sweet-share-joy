@@ -681,9 +681,12 @@ async function generateAndSend(args: {
       await markFailed(err);
       return;
     }
-    const targetJid = validWhatsappJid(conversation.remote_jid) ?? validWhatsappJid(remoteJid);
+    const targetJid =
+      validWhatsappJid(conversation.remote_jid) ??
+      validWhatsappJid(contact.remote_jid) ??
+      validWhatsappJid(remoteJid);
     if (!targetJid) {
-      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, remote_jid=${remoteJid})`;
+      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
       await markFailed(err);
       return;
@@ -703,6 +706,7 @@ async function generateAndSend(args: {
       authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to: targetJid,
       conversation_remote_jid: conversation.remote_jid,
+      contact_remote_jid: contact.remote_jid,
       remote_jid: remoteJid,
       phone_before_save: fromPhone,
       message_length: replyText.length,
