@@ -50,14 +50,22 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           },
         }),
       POST: async ({ request }) => {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        let workspaceId = "unknown";
         try {
-          const body = WebhookSchema.parse(await request.json());
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const raw = await request.json();
+          const body = WebhookSchema.parse(raw);
+          workspaceId = body.workspace_id;
+
+          await logStep(supabaseAdmin, workspaceId, "Message received", {
+            from: body.from,
+            preview: body.body.slice(0, 80),
+          });
 
           const { data: session } = await supabaseAdmin
             .from("whatsapp_sessions")
             .select("*")
-            .eq("workspace_id", body.workspace_id)
+            .eq("workspace_id", workspaceId)
             .single();
           if (!session || session.webhook_secret !== body.secret) {
             return new Response(JSON.stringify({ error: "Invalid secret" }), {
@@ -80,14 +88,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           let { data: contact } = await supabaseAdmin
             .from("contacts")
             .select("*")
-            .eq("workspace_id", body.workspace_id)
+            .eq("workspace_id", workspaceId)
             .eq("phone", body.from)
             .maybeSingle();
           if (!contact) {
             const ins = await supabaseAdmin
               .from("contacts")
               .insert({
-                workspace_id: body.workspace_id,
+                workspace_id: workspaceId,
                 phone: body.from,
                 name: body.contact_name ?? body.from,
                 channel: "whatsapp",
@@ -108,13 +116,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           let { data: conv } = await supabaseAdmin
             .from("conversations")
             .select("*")
-            .eq("workspace_id", body.workspace_id)
+            .eq("workspace_id", workspaceId)
             .eq("contact_id", contact.id)
             .maybeSingle();
           if (!conv) {
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: body.workspace_id, contact_id: contact.id })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id })
               .select()
               .single();
             conv = ins.data;
@@ -128,7 +136,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
           // Save inbound + bump conversation
           await supabaseAdmin.from("messages").insert({
-            workspace_id: body.workspace_id,
+            workspace_id: workspaceId,
             conversation_id: conv.id,
             direction: "inbound",
             sender: "contact",
@@ -142,24 +150,22 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             })
             .eq("id", conv.id);
 
-          // Auto-create lead for new contact (cheap, but do it in background)
-          runInBackground(
-            (async () => {
-              const { data: existingLead } = await supabaseAdmin
-                .from("leads")
-                .select("id")
-                .eq("contact_id", contact!.id)
-                .maybeSingle();
-              if (!existingLead) {
-                await supabaseAdmin.from("leads").insert({
-                  workspace_id: body.workspace_id,
-                  contact_id: contact!.id,
-                  source: "whatsapp",
-                  stage: "new",
-                } as any);
-              }
-            })(),
-          );
+          await logStep(supabaseAdmin, workspaceId, "Inbound saved", { conv_id: conv.id });
+
+          // Auto-create lead
+          const { data: existingLead } = await supabaseAdmin
+            .from("leads")
+            .select("id")
+            .eq("contact_id", contact.id)
+            .maybeSingle();
+          if (!existingLead) {
+            await supabaseAdmin.from("leads").insert({
+              workspace_id: workspaceId,
+              contact_id: contact.id,
+              source: "whatsapp",
+              stage: "new",
+            } as any);
+          }
 
           // ---- Risk gates ----
           const blocked: string[] = [];
@@ -182,46 +188,48 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           }
 
           if (blocked.length) {
-            runInBackground(
-              supabaseAdmin.from("risk_logs").insert({
-                workspace_id: body.workspace_id,
-                conversation_id: conv.id,
-                level: "info",
-                category: "blocked",
-                message: `Auto-reply blocked: ${blocked.join(", ")}`,
-                metadata: { reasons: blocked },
-              } as any) as unknown as Promise<unknown>,
+            await logStep(
+              supabaseAdmin,
+              workspaceId,
+              `Auto-reply blocked: ${blocked.join(", ")}`,
+              { reasons: blocked },
+              "warn",
             );
+            await supabaseAdmin.from("risk_logs").insert({
+              workspace_id: workspaceId,
+              conversation_id: conv.id,
+              level: "info",
+              category: "blocked",
+              message: `Auto-reply blocked: ${blocked.join(", ")}`,
+              metadata: { reasons: blocked },
+            } as any);
             return new Response(
-              JSON.stringify({ ok: true, queued: false, replied: false, reasons: blocked }),
+              JSON.stringify({ ok: true, replied: false, reasons: blocked }),
               { headers: cors },
             );
           }
 
-          // ---- Queue background AI + send ----
-          const sessionSnapshot = session;
-          const contactSnapshot = contact;
-          const convSnapshot = conv;
+          // ---- Generate AI reply + send via VPS (synchronous so it actually runs) ----
+          await generateAndSend({
+            supabaseAdmin,
+            session,
+            conversation: conv,
+            contact,
+            workspaceId,
+            inboundBody: body.body,
+            fromPhone: body.from,
+          });
 
-          runInBackground(
-            generateAndSend({
-              supabaseAdmin,
-              session: sessionSnapshot,
-              conversation: convSnapshot,
-              contact: contactSnapshot,
-              workspaceId: body.workspace_id,
-              inboundBody: body.body,
-              fromPhone: body.from,
-            }),
-          );
-
-          // Return immediately — VPS will NOT send anything because replied=false.
-          return new Response(
-            JSON.stringify({ ok: true, queued: true, replied: false }),
-            { headers: cors },
-          );
+          return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
         } catch (e: any) {
-          return new Response(JSON.stringify({ error: e.message ?? "Webhook failed" }), {
+          await logStep(
+            supabaseAdmin,
+            workspaceId,
+            `Webhook failed: ${e?.message ?? "unknown"}`,
+            { stack: e?.stack },
+            "error",
+          );
+          return new Response(JSON.stringify({ error: e?.message ?? "Webhook failed" }), {
             status: 400,
             headers: cors,
           });
@@ -240,8 +248,7 @@ async function generateAndSend(args: {
   inboundBody: string;
   fromPhone: string;
 }) {
-  const { supabaseAdmin, session, conversation, contact, workspaceId, inboundBody, fromPhone } =
-    args;
+  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone } = args;
 
   try {
     // ---- Reply rules (keyword match) ----
@@ -256,9 +263,16 @@ async function generateAndSend(args: {
     );
 
     let replyText: string | undefined = matched?.response;
+    if (replyText) {
+      await logStep(supabaseAdmin, workspaceId, "Matched reply rule", {
+        trigger: matched?.trigger_keywords,
+      });
+    }
 
     // ---- Gemini AI fallback ----
     if (!replyText) {
+      await logStep(supabaseAdmin, workspaceId, "Gemini started", {});
+      const t0 = Date.now();
       try {
         const { createLovableAiGatewayProvider } = await import("@/lib/ai/gateway.server");
         const { generateText } = await import("ai");
@@ -267,42 +281,56 @@ async function generateAndSend(args: {
           .select("*")
           .eq("workspace_id", workspaceId)
           .single();
-        if (aiSettings) {
-          const key = process.env.LOVABLE_API_KEY!;
-          const gateway = createLovableAiGatewayProvider(key);
-          const sys = `You are a professional human sales assistant for WhatsApp. Reply naturally in the customer's language (English, Tamil, or Sinhala). Keep it short. Ask one question at a time. Never reveal you are AI.\n\nPersonality: ${aiSettings.personality}\nTone: ${aiSettings.business_tone}\nSales script: ${aiSettings.sales_script}\nPricing: ${aiSettings.pricing_rules}\nFAQ: ${aiSettings.faq_answers}\nObjections: ${aiSettings.objection_handling}`;
-          const { data: history } = await supabaseAdmin
-            .from("messages")
-            .select("direction, body")
-            .eq("conversation_id", conversation.id)
-            .order("created_at", { ascending: true })
-            .limit(10);
-          const msgs = (history ?? []).map((m: any) => ({
-            role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-            content: m.body ?? "",
-          }));
-          const r = await generateText({
-            model: gateway(aiSettings.model),
-            system: sys,
-            messages: msgs,
-            temperature: Number(aiSettings.temperature),
-          });
-          replyText = r.text.trim();
+        if (!aiSettings) {
+          await logStep(supabaseAdmin, workspaceId, "No ai_settings row", {}, "error");
+          return;
         }
-      } catch (err: any) {
-        await supabaseAdmin.from("bot_logs").insert({
-          workspace_id: workspaceId,
-          bot_name: "gemini",
-          channel: "whatsapp",
-          level: "error",
-          message: `Gemini failed: ${err.message}`,
-          metadata: {},
+        const key = process.env.LOVABLE_API_KEY;
+        if (!key) {
+          await logStep(supabaseAdmin, workspaceId, "LOVABLE_API_KEY missing", {}, "error");
+          return;
+        }
+        const gateway = createLovableAiGatewayProvider(key);
+        const sys = `You are a professional human sales assistant for WhatsApp. Reply naturally in the customer's language (English, Tamil, or Sinhala). Keep it short. Ask one question at a time. Never reveal you are AI.\n\nPersonality: ${aiSettings.personality}\nTone: ${aiSettings.business_tone}\nSales script: ${aiSettings.sales_script}\nPricing: ${aiSettings.pricing_rules}\nFAQ: ${aiSettings.faq_answers}\nObjections: ${aiSettings.objection_handling}`;
+        const { data: history } = await supabaseAdmin
+          .from("messages")
+          .select("direction, body")
+          .eq("conversation_id", conversation.id)
+          .order("created_at", { ascending: true })
+          .limit(10);
+        const msgs = (history ?? []).map((m: any) => ({
+          role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+          content: m.body ?? "",
+        }));
+        const r = await generateText({
+          model: gateway(aiSettings.model || "google/gemini-3-flash-preview"),
+          system: sys,
+          messages: msgs,
+          temperature: Number(aiSettings.temperature ?? 0.7),
         });
+        replyText = r.text?.trim();
+        await logStep(supabaseAdmin, workspaceId, "Gemini completed", {
+          ms: Date.now() - t0,
+          length: replyText?.length ?? 0,
+          model: aiSettings.model,
+          finish_reason: (r as any).finishReason,
+        });
+      } catch (err: any) {
+        await logStep(
+          supabaseAdmin,
+          workspaceId,
+          `Gemini failed: ${err?.message}`,
+          { ms: Date.now() - t0, stack: err?.stack?.slice(0, 500) },
+          "error",
+        );
         return;
       }
     }
 
-    if (!replyText) return;
+    if (!replyText) {
+      await logStep(supabaseAdmin, workspaceId, "Gemini returned empty reply", {}, "warn");
+      return;
+    }
 
     // Save outbound
     await supabaseAdmin.from("messages").insert({
@@ -316,6 +344,7 @@ async function generateAndSend(args: {
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
+    await logStep(supabaseAdmin, workspaceId, "Reply saved", { length: replyText.length });
 
     // Human-like delay
     const delaySec =
@@ -326,16 +355,15 @@ async function generateAndSend(args: {
       );
     await new Promise((r) => setTimeout(r, delaySec * 1000));
 
-    // Send via VPS /send endpoint
+    // Send via VPS /send
     if (!session.vps_endpoint || !session.vps_api_token) {
-      await supabaseAdmin.from("bot_logs").insert({
-        workspace_id: workspaceId,
-        bot_name: "whatsapp-vps",
-        channel: "whatsapp",
-        level: "error",
-        message: "VPS endpoint/token not configured — cannot send reply",
-        metadata: {},
-      });
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        "VPS endpoint/token not configured — cannot send",
+        {},
+        "error",
+      );
       return;
     }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
@@ -349,25 +377,26 @@ async function generateAndSend(args: {
     });
     const txt = await res.text();
     if (!res.ok) {
-      await supabaseAdmin.from("bot_logs").insert({
-        workspace_id: workspaceId,
-        bot_name: "whatsapp-vps",
-        channel: "whatsapp",
-        level: "error",
-        message: `VPS /send failed (${res.status}): ${txt}`,
-        metadata: {},
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `VPS /send failed (${res.status})`,
+        { body: txt.slice(0, 300), url },
+        "error",
+      );
+    } else {
+      await logStep(supabaseAdmin, workspaceId, "WhatsApp reply sent", {
+        to: fromPhone,
+        url,
       });
     }
   } catch (e: any) {
-    await supabaseAdmin.from("bot_logs").insert({
-      workspace_id: workspaceId,
-      bot_name: "whatsapp-vps",
-      channel: "whatsapp",
-      level: "error",
-      message: `Background worker error: ${e.message}`,
-      metadata: {},
-    });
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      `Background worker error: ${e?.message}`,
+      { stack: e?.stack?.slice(0, 500) },
+      "error",
+    );
   }
-  // mark contact unused arg suppressor
-  void contact;
 }
