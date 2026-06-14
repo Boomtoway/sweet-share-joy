@@ -754,7 +754,7 @@ async function generateAndSend(args: {
         status: res.status,
         http_ok: res.ok,
         provider_ok: typeof parsed === "object" ? parsed?.ok : undefined,
-        to: targetJid,
+        to,
         message_id: outboundMsg?.id,
       });
       await logStep(supabaseAdmin, workspaceId, "vps_send_body", {
@@ -777,7 +777,7 @@ async function generateAndSend(args: {
             .eq("id", outboundMsg.id);
         }
         await logStep(supabaseAdmin, workspaceId, "vps_send_success", {
-          to: targetJid,
+          to,
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg?.id,
         });
@@ -795,7 +795,7 @@ async function generateAndSend(args: {
             http_ok: res.ok,
             provider_ok: providerOk,
             error: String(err).slice(0, 800),
-            to: targetJid,
+            to,
             message_id: outboundMsg?.id,
           },
           "error",
@@ -806,7 +806,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         "vps_send_failed",
-        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to: targetJid, message_id: outboundMsg?.id },
+        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
