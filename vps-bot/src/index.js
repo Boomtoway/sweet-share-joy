@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'path';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import {
@@ -25,6 +26,16 @@ if (!API_TOKEN) throw new Error('API_TOKEN required');
 if (!LOVABLE_WEBHOOK_URL) throw new Error('LOVABLE_WEBHOOK_URL required');
 if (!WORKSPACE_ID || !WEBHOOK_SECRET) throw new Error('WORKSPACE_ID and WEBHOOK_SECRET required');
 
+const AUTH_FOLDER_PATH = path.resolve(process.cwd(), AUTH_DIR);
+const AUTH_PATHS = {
+  auth_dir_config: AUTH_DIR,
+  cwd: process.cwd(),
+  auth_folder_path: AUTH_FOLDER_PATH,
+  session_path: AUTH_FOLDER_PATH,
+  session_files_pattern: path.join(AUTH_FOLDER_PATH, 'session-*.json'),
+  credentials_file_path: path.join(AUTH_FOLDER_PATH, 'creds.json'),
+};
+
 let sock = null;
 let currentQR = null;
 let connState = 'disconnected'; // disconnected | connecting | connected
@@ -32,7 +43,8 @@ let lastError = null;
 
 async function startSock() {
   connState = 'connecting';
-  const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
+  log.info(AUTH_PATHS, 'Baileys auth storage paths');
+  const { state, saveCreds } = await useMultiFileAuthState(AUTH_FOLDER_PATH);
   const { version } = await fetchLatestBaileysVersion();
 
   sock = makeWASocket({
