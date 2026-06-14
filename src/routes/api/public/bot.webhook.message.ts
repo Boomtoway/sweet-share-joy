@@ -335,7 +335,10 @@ async function generateAndSend(args: {
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: sys }] },
             contents,
-            generationConfig: { temperature: Number(aiSettings.temperature ?? 0.7) },
+            generationConfig: {
+              temperature: Number(aiSettings.temperature ?? 0.7),
+              maxOutputTokens: 1024,
+            },
           }),
         });
         const json: any = await res.json();
@@ -344,7 +347,7 @@ async function generateAndSend(args: {
             supabaseAdmin,
             workspaceId,
             `Gemini HTTP ${res.status}`,
-            { body: JSON.stringify(json).slice(0, 500) },
+            { body: JSON.stringify(json).slice(0, 800) },
             "error",
           );
           return;
@@ -354,12 +357,25 @@ async function generateAndSend(args: {
           .filter(Boolean)
           .join("")
           ?.trim();
+        const finishReason = json?.candidates?.[0]?.finishReason;
         await logStep(supabaseAdmin, workspaceId, "Gemini completed", {
           ms: Date.now() - t0,
           length: replyText?.length ?? 0,
           model,
-          finish_reason: json?.candidates?.[0]?.finishReason,
+          finish_reason: finishReason,
+          prompt_feedback: json?.promptFeedback,
+          safety_ratings: json?.candidates?.[0]?.safetyRatings,
+          usage: json?.usageMetadata,
         });
+        if (!replyText) {
+          await logStep(
+            supabaseAdmin,
+            workspaceId,
+            `Gemini empty reply (finish=${finishReason})`,
+            { raw: JSON.stringify(json).slice(0, 1200) },
+            "error",
+          );
+        }
       } catch (err: any) {
         await logStep(
           supabaseAdmin,
@@ -373,9 +389,10 @@ async function generateAndSend(args: {
     }
 
     if (!replyText) {
-      await logStep(supabaseAdmin, workspaceId, "Gemini returned empty reply", {}, "warn");
       return;
     }
+
+
 
     // Save outbound
     await supabaseAdmin.from("messages").insert({
