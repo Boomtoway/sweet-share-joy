@@ -42,6 +42,7 @@ function AiSettingsPage() {
   const fetchSettings = useServerFn(getAiSettings);
   const saveSettings = useServerFn(updateAiSettings);
   const reply = useServerFn(generateSalesReply);
+  const fetchErrors = useServerFn(getRecentBotErrors);
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["ai-settings"],
@@ -49,6 +50,12 @@ function AiSettingsPage() {
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+  });
+
+  const { data: errorsData, refetch: refetchErrors } = useQuery({
+    queryKey: ["ai-recent-errors"],
+    queryFn: () => fetchErrors(),
+    refetchInterval: 10000,
   });
 
   const [form, setForm] = useState<Record<string, any>>({});
