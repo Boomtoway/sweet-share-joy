@@ -3,16 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
-
-function normalizeWhatsAppRecipient(value: unknown): string | null {
-  let raw = String(value ?? "").trim();
-  if (!raw) return null;
-  raw = raw.replace(/^mailto:/i, "").replace(/@s\.whatsapp\.net$/i, "");
-  let digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("0")) digits = `94${digits.slice(1)}`;
-  return digits;
-}
+const DIRECT_VPS_API_TOKEN = "startapplk-bot-12345";
+const TEST_VPS_RECIPIENT = "94740123466";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -102,25 +94,16 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ManualSendSchema.parse(i))
   .handler(async ({ context, data }) => {
-    const { workspaceId, session } = await getSession(context.supabase, context.userId);
-    if (!session?.vps_api_token) throw new Error("VPS API token not configured");
+    const { workspaceId } = await getSession(context.supabase, context.userId);
 
     const messageText = data.message.trim();
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")
-      .select("id, workspace_id, remote_jid, contact:contacts(id, phone, remote_jid)")
+      .select("id, workspace_id")
       .eq("id", data.conversationId)
       .eq("workspace_id", workspaceId)
       .single();
     if (conversationError) throw conversationError;
-
-    const contact = Array.isArray((conversation as any).contact)
-      ? (conversation as any).contact[0]
-      : (conversation as any).contact;
-    const to = normalizeWhatsAppRecipient(
-      (conversation as any).remote_jid || contact?.remote_jid || contact?.phone,
-    );
-    if (!to) throw new Error("No WhatsApp recipient found for this conversation");
 
     const { data: outbound, error: insertError } = await context.supabase
       .from("messages")
@@ -131,7 +114,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         sender: "human",
         body: messageText,
         delivery_status: "pending",
-        target_jid: to,
+        target_jid: TEST_VPS_RECIPIENT,
       })
       .select()
       .single();
@@ -144,7 +127,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         .eq("id", outbound.id);
     };
 
-    const sendBody = { to, message: messageText };
+    const sendBody = { to: TEST_VPS_RECIPIENT, message: messageText };
     console.log("SENDING_TO_VPS_URL", DIRECT_VPS_SEND_URL);
     console.log("SEND_BODY", sendBody);
 
@@ -154,7 +137,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.vps_api_token}`,
+          Authorization: `Bearer ${DIRECT_VPS_API_TOKEN}`,
         },
         body: JSON.stringify(sendBody),
       });
