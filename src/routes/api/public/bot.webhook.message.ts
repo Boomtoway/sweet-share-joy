@@ -121,7 +121,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Headers": "Content-Type, x-bot-secret",
           },
         }),
       POST: async ({ request }) => {
