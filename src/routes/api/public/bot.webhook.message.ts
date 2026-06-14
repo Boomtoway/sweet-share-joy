@@ -690,41 +690,44 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send — use only persisted WhatsApp JIDs, never database ids or phone numbers.
+    // Send via VPS /send — prefer WhatsApp JIDs, fallback to phone, never database ids.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    let to: string | null =
-      conversation.remote_jid || contact.remote_jid || contact.phone || null;
+    let to =
+      conversation.remote_jid ||
+      contact.remote_jid ||
+      contact.phone;
+
     if (to && !to.includes("@s.whatsapp.net")) {
-      let d = String(to).replace(/\D/g, "");
-      if (d.startsWith("0")) d = "94" + d.slice(1);
-      to = `${d}@s.whatsapp.net`;
+      let digits = String(to).replace(/\D/g, "");
+      if (digits.startsWith("0")) digits = "94" + digits.slice(1);
+      to = `${digits}@s.whatsapp.net`;
     }
-    const targetJid = validWhatsappJid(to);
-    if (!targetJid) {
+
+    if (!validWhatsappJid(to)) {
       const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, contact.phone=${contact.phone}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
       await markFailed(err);
       return;
     }
-    console.log("SEND TO:", targetJid);
+    console.log("SEND TO:", to);
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
         .from("messages")
-        .update({ target_jid: targetJid })
+        .update({ target_jid: to })
         .eq("id", outboundMsg.id);
     }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
-    const payload = { to: targetJid, message: replyText };
+    const payload = { to, message: replyText };
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
       authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
-      to: targetJid,
+      to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
       remote_jid: remoteJid,
@@ -751,7 +754,7 @@ async function generateAndSend(args: {
         status: res.status,
         http_ok: res.ok,
         provider_ok: typeof parsed === "object" ? parsed?.ok : undefined,
-        to: targetJid,
+        to,
         message_id: outboundMsg?.id,
       });
       await logStep(supabaseAdmin, workspaceId, "vps_send_body", {
@@ -774,7 +777,7 @@ async function generateAndSend(args: {
             .eq("id", outboundMsg.id);
         }
         await logStep(supabaseAdmin, workspaceId, "vps_send_success", {
-          to: targetJid,
+          to,
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg?.id,
         });
@@ -792,7 +795,7 @@ async function generateAndSend(args: {
             http_ok: res.ok,
             provider_ok: providerOk,
             error: String(err).slice(0, 800),
-            to: targetJid,
+            to,
             message_id: outboundMsg?.id,
           },
           "error",
@@ -803,7 +806,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         "vps_send_failed",
-        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to: targetJid, message_id: outboundMsg?.id },
+        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
