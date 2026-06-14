@@ -516,7 +516,7 @@ async function generateAndSend(args: {
           .join("")
           ?.trim();
         const finishReason = json?.candidates?.[0]?.finishReason;
-        await logStep(supabaseAdmin, workspaceId, "Gemini completed", {
+        await logStep(supabaseAdmin, workspaceId, "ai_completed", {
           ms: Date.now() - t0,
           length: replyText?.length ?? 0,
           model,
@@ -525,11 +525,7 @@ async function generateAndSend(args: {
           safety_ratings: json?.candidates?.[0]?.safetyRatings,
           usage: json?.usageMetadata,
         });
-        await logStep(supabaseAdmin, workspaceId, "gemini_done", {
-          ms: Date.now() - t0,
-          length: replyText?.length ?? 0,
-          finish_reason: finishReason,
-        });
+
         if (!replyText) {
           await logStep(
             supabaseAdmin,
