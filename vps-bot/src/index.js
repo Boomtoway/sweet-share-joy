@@ -101,7 +101,7 @@ async function startSock() {
 
         const res = await fetch(LOVABLE_WEBHOOK_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-bot-secret': WEBHOOK_SECRET },
           body: JSON.stringify({
             workspace_id: WORKSPACE_ID,
             secret: WEBHOOK_SECRET,

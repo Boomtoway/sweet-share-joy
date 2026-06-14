@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
-  secret: z.string().min(8),
+  secret: z.string().min(8).optional(),
   from: z.string().min(1),
   remote_jid: z.string().optional(),
   contact_name: z.string().optional(),
@@ -85,6 +85,32 @@ function scheduleBackground(request: Request, work: Promise<unknown>) {
   } catch {}
 }
 
+function queueLog(
+  request: Request,
+  supabaseAdmin: any,
+  workspaceId: string,
+  message: string,
+  metadata: Record<string, unknown> = {},
+  level: "info" | "warn" | "error" = "info",
+) {
+  console.log(`[webhook] ${message}`, metadata);
+  scheduleBackground(
+    request,
+    supabaseAdmin
+      .from("bot_logs")
+      .insert({
+        workspace_id: workspaceId,
+        bot_name: "whatsapp-vps",
+        channel: "whatsapp",
+        level,
+        message,
+        metadata,
+      })
+      .then(() => undefined)
+      .catch((e: any) => console.error("[webhook] queued log insert failed", e)),
+  );
+}
+
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
   server: {
@@ -95,29 +121,33 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "POST, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Headers": "Content-Type, x-bot-secret",
           },
         }),
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         let workspaceId = "unknown";
         try {
+          const receivedAt = Date.now();
           const raw = await request.json();
           const body = WebhookSchema.parse(raw);
           workspaceId = body.workspace_id;
+          const headerSecret = request.headers.get("x-bot-secret") ?? "";
 
-          await logStep(supabaseAdmin, workspaceId, "Message received", {
+          queueLog(request, supabaseAdmin, workspaceId, "webhook_received", {
             from: body.from,
             remote_jid: body.remote_jid,
             phone_before_save: body.from,
             preview: body.body.slice(0, 80),
+            has_x_bot_secret: Boolean(headerSecret),
           });
 
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
           if (body.remote_jid) {
             const expected = body.remote_jid.split("@")[0];
             if (expected !== body.from) {
-              await logStep(
+              queueLog(
+                request,
                 supabaseAdmin,
                 workspaceId,
                 "phone_saved differs from remoteJid.split('@')[0]",
@@ -140,12 +170,23 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 .single(),
           );
           const session = sessionRes?.data;
-          if (!session || session.webhook_secret !== body.secret) {
+          const envSecret = process.env.WEBHOOK_SECRET;
+          const providedSecret = headerSecret || body.secret || "";
+          const secretOk = Boolean(
+            session &&
+              providedSecret &&
+              (providedSecret === session.webhook_secret ||
+                (envSecret && providedSecret === envSecret)),
+          );
+          if (!secretOk) {
             return new Response(JSON.stringify({ error: "Invalid secret" }), {
               status: 401,
               headers: cors,
             });
           }
+          queueLog(request, supabaseAdmin, workspaceId, "secret_ok", {
+            source: headerSecret ? "x-bot-secret" : "body.secret",
+          });
 
           // Daily counter reset
           const today = new Date().toISOString().slice(0, 10);
@@ -204,7 +245,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             });
           }
 
-          await logStep(supabaseAdmin, workspaceId, "Contact resolved", {
+          queueLog(request, supabaseAdmin, workspaceId, "Contact resolved", {
             contact_id: contact.id,
             remote_jid: contact.remote_jid,
             phone_saved: contact.phone,
@@ -250,67 +291,10 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             })
             .eq("id", conv.id);
 
-          await logStep(supabaseAdmin, workspaceId, "Inbound saved", { conv_id: conv.id });
+          queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", { conv_id: conv.id });
 
-          // Auto-create lead
-          const { data: existingLead } = await supabaseAdmin
-            .from("leads")
-            .select("id")
-            .eq("contact_id", contact.id)
-            .maybeSingle();
-          if (!existingLead) {
-            await supabaseAdmin.from("leads").insert({
-              workspace_id: workspaceId,
-              contact_id: contact.id,
-              source: "whatsapp",
-              stage: "new",
-            } as any);
-          }
-
-          // ---- Risk gates ----
-          const blocked: string[] = [];
-          if (!session.ai_enabled) blocked.push("ai_off_global");
-          if (!contact.ai_enabled) blocked.push("ai_off_contact");
-          if (contact.human_takeover) blocked.push("human_takeover");
-          if (contact.is_blacklisted) blocked.push("blacklisted");
-          if (session.list_mode === "whitelist" && !contact.is_whitelisted)
-            blocked.push("not_whitelisted");
-          if (session.list_mode === "blacklist" && contact.is_blacklisted)
-            blocked.push("blacklisted_mode");
-          if (session.messages_today >= session.daily_limit) blocked.push("daily_limit");
-
-          if (/\b(human|agent|manager|real person|manussa|aalu|ஆள்|මනුස්ස)\b/i.test(body.body)) {
-            await supabaseAdmin
-              .from("contacts")
-              .update({ human_takeover: true })
-              .eq("id", contact.id);
-            blocked.push("human_requested");
-          }
-
-          if (blocked.length) {
-            await logStep(
-              supabaseAdmin,
-              workspaceId,
-              `Auto-reply blocked: ${blocked.join(", ")}`,
-              { reasons: blocked },
-              "warn",
-            );
-            await supabaseAdmin.from("risk_logs").insert({
-              workspace_id: workspaceId,
-              conversation_id: conv.id,
-              level: "info",
-              category: "blocked",
-              message: `Auto-reply blocked: ${blocked.join(", ")}`,
-              metadata: { reasons: blocked },
-            } as any);
-            return new Response(
-              JSON.stringify({ ok: true, replied: false, reasons: blocked }),
-              { headers: cors },
-            );
-          }
-
-          // ---- Generate AI reply + send via VPS (fire-and-forget so the
-          // webhook returns in <1s; VPS times out at 5s otherwise) ----
+          // ---- Everything after inbound persistence runs in the background.
+          // The webhook must ACK within 1s and never wait for Gemini/delay/VPS. ----
           const work = generateAndSend({
             supabaseAdmin,
             session,
@@ -331,8 +315,11 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           );
           scheduleBackground(request, work);
 
-
-          return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
+          queueLog(request, supabaseAdmin, workspaceId, "http_200_returned", {
+            queued: true,
+            ms: Date.now() - receivedAt,
+          });
+          return new Response(JSON.stringify({ ok: true, queued: true }), { headers: cors });
         } catch (e: any) {
           await logStep(
             supabaseAdmin,
@@ -361,10 +348,65 @@ async function generateAndSend(args: {
   fromPhone: string;
   remoteJid: string | null;
 }) {
-  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone, remoteJid } = args;
+  const { supabaseAdmin, session, conversation, contact, workspaceId, inboundBody, fromPhone, remoteJid } =
+    args;
 
 
   try {
+    await logStep(supabaseAdmin, workspaceId, "background_started", {
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+    });
+
+    // Auto-create lead
+    const { data: existingLead } = await supabaseAdmin
+      .from("leads")
+      .select("id")
+      .eq("contact_id", contact.id)
+      .maybeSingle();
+    if (!existingLead) {
+      await supabaseAdmin.from("leads").insert({
+        workspace_id: workspaceId,
+        contact_id: contact.id,
+        source: "whatsapp",
+        stage: "new",
+      } as any);
+    }
+
+    // ---- Risk gates ----
+    const blocked: string[] = [];
+    if (!session.ai_enabled) blocked.push("ai_off_global");
+    if (!contact.ai_enabled) blocked.push("ai_off_contact");
+    if (contact.human_takeover) blocked.push("human_takeover");
+    if (contact.is_blacklisted) blocked.push("blacklisted");
+    if (session.list_mode === "whitelist" && !contact.is_whitelisted) blocked.push("not_whitelisted");
+    if (session.list_mode === "blacklist" && contact.is_blacklisted) blocked.push("blacklisted_mode");
+    if (session.messages_today >= session.daily_limit) blocked.push("daily_limit");
+
+    if (/\b(human|agent|manager|real person|manussa|aalu|ஆள்|මනුස්ස)\b/i.test(inboundBody)) {
+      await supabaseAdmin.from("contacts").update({ human_takeover: true }).eq("id", contact.id);
+      blocked.push("human_requested");
+    }
+
+    if (blocked.length) {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `Auto-reply blocked: ${blocked.join(", ")}`,
+        { reasons: blocked },
+        "warn",
+      );
+      await supabaseAdmin.from("risk_logs").insert({
+        workspace_id: workspaceId,
+        conversation_id: conversation.id,
+        level: "info",
+        category: "blocked",
+        message: `Auto-reply blocked: ${blocked.join(", ")}`,
+        metadata: { reasons: blocked },
+      } as any);
+      return;
+    }
+
     // ---- Reply rules (keyword match) ----
     const { data: rules } = await supabaseAdmin
       .from("reply_rules")
@@ -480,6 +522,11 @@ async function generateAndSend(args: {
           prompt_feedback: json?.promptFeedback,
           safety_ratings: json?.candidates?.[0]?.safetyRatings,
           usage: json?.usageMetadata,
+        });
+        await logStep(supabaseAdmin, workspaceId, "gemini_done", {
+          ms: Date.now() - t0,
+          length: replyText?.length ?? 0,
+          finish_reason: finishReason,
         });
         if (!replyText) {
           await logStep(
@@ -597,6 +644,13 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
+        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+          ok: false,
+          status: res.status,
+          error: String(err).slice(0, 800),
+          to: targetJid,
+          message_id: outboundMsg?.id,
+        }, "error");
       } else if (outboundMsg?.id) {
         await supabaseAdmin
           .from("messages")
@@ -611,6 +665,13 @@ async function generateAndSend(args: {
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
+        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+          ok: true,
+          status: res.status,
+          to: targetJid,
+          provider_message_id: parsed?.id ?? null,
+          message_id: outboundMsg.id,
+        });
       }
     } catch (sendErr: any) {
       await logStep(
@@ -621,6 +682,12 @@ async function generateAndSend(args: {
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
+      await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+        ok: false,
+        error: sendErr?.message ?? "unknown",
+        to: targetJid,
+        message_id: outboundMsg?.id,
+      }, "error");
     }
   } catch (e: any) {
     await logStep(
