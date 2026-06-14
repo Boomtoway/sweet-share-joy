@@ -482,18 +482,27 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send
+    // Send via VPS /send — use the raw remoteJid if we have one, otherwise the phone digits.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
+    const targetJid = remoteJid && remoteJid.includes("@") ? remoteJid : fromPhone;
+    if (outboundMsg?.id) {
+      await supabaseAdmin
+        .from("messages")
+        .update({ target_jid: targetJid })
+        .eq("id", outboundMsg.id);
+    }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
-    const payload = { to: fromPhone, message: replyText };
+    const payload = { to: targetJid, message: replyText };
     await logStep(supabaseAdmin, workspaceId, "VPS /send request", {
       url,
-      to: fromPhone,
+      to: targetJid,
+      remote_jid: remoteJid,
+      phone_before_save: fromPhone,
       message_length: replyText.length,
       message_id: outboundMsg?.id,
     });
@@ -515,7 +524,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         `VPS /send response ${res.status}`,
-        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url },
+        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid },
         res.ok ? "info" : "error",
       );
       if (!res.ok) {
@@ -533,7 +542,7 @@ async function generateAndSend(args: {
           })
           .eq("id", outboundMsg.id);
         await logStep(supabaseAdmin, workspaceId, "Reply sent", {
-          to: fromPhone,
+          to: targetJid,
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
