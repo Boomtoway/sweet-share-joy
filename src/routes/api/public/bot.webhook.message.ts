@@ -170,16 +170,18 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           const body = WebhookSchema.parse(raw);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const rawFrom = body.from ?? body.phone ?? "";
+          const rawFrom = body.from ?? "";
           const inboundText = body.body ?? body.message ?? "";
+          // `from` is the VPS source of truth for WhatsApp delivery. Persist it as the
+          // conversation recipient JID, never a database contact/conversation id.
           const sourceRemoteJid =
+            extractWhatsappJid(body.from) ??
+            normalizeLkPhoneToJid(body.from) ??
             extractWhatsappJid(body.remote_jid) ??
             extractWhatsappJid(body.remoteJid) ??
             extractWhatsappJid(body.jid) ??
-            extractWhatsappJid(rawFrom) ??
-            normalizeLkPhoneToJid(rawFrom) ??
             normalizeLkPhoneToJid(body.phone);
-          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(rawFrom);
+          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(body.from ?? body.phone);
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
@@ -372,6 +374,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               ...(sourceRemoteJid ? { remote_jid: sourceRemoteJid } : {}),
             })
             .eq("id", conv.id);
+          if (sourceRemoteJid) conv.remote_jid = sourceRemoteJid;
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", {
             conv_id: conv.id,
