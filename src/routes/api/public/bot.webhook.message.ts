@@ -276,7 +276,6 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           );
           // Best-effort: keep the worker alive after response in CF Workers.
           try {
-            // @ts-expect-error - request.waitUntil is available in CF Workers
             (request as any).waitUntil?.(work);
           } catch {}
 
