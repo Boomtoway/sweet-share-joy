@@ -637,8 +637,8 @@ async function generateAndSend(args: {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        `VPS /send response ${res.status}`,
-        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid },
+        "vps_send_response",
+        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid, message_id: outboundMsg?.id },
         res.ok ? "info" : "error",
       );
       if (!res.ok) {
@@ -646,8 +646,7 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
-        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-          ok: false,
+        await logStep(supabaseAdmin, workspaceId, "vps_send_error", {
           status: res.status,
           error: String(err).slice(0, 800),
           to: targetJid,
@@ -667,13 +666,7 @@ async function generateAndSend(args: {
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
-        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-          ok: true,
-          status: res.status,
-          to: targetJid,
-          provider_message_id: parsed?.id ?? null,
-          message_id: outboundMsg.id,
-        });
+
       }
     } catch (sendErr: any) {
       await logStep(
