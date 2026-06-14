@@ -290,20 +290,42 @@ async function generateAndSend(args: {
 
       const sys = `You are a professional human sales assistant for WhatsApp. Reply naturally in the customer's language (English, Tamil, or Sinhala). Keep it short. Ask one question at a time. Never reveal you are AI.\n\nPersonality: ${aiSettings.personality}\nTone: ${aiSettings.business_tone}\nSales script: ${aiSettings.sales_script}\nPricing: ${aiSettings.pricing_rules}\nFAQ: ${aiSettings.faq_answers}\nObjections: ${aiSettings.objection_handling}`;
 
-      const { data: history } = await supabaseAdmin
+      // Fetch the LATEST 12 messages, then put them in chronological order.
+      const { data: historyDesc } = await supabaseAdmin
         .from("messages")
-        .select("direction, body")
+        .select("direction, body, created_at")
         .eq("conversation_id", conversation.id)
-        .order("created_at", { ascending: true })
-        .limit(10);
+        .order("created_at", { ascending: false })
+        .limit(12);
+      const history = (historyDesc ?? []).slice().reverse();
 
-      const contents = (history ?? []).map((m: any) => ({
-        role: m.direction === "inbound" ? "user" : "model",
-        parts: [{ text: m.body ?? "" }],
-      }));
+      // Build alternating user/model turns starting with user.
+      const contents: any[] = [];
+      for (const m of history) {
+        const role = m.direction === "inbound" ? "user" : "model";
+        const text = (m.body ?? "").trim();
+        if (!text) continue;
+        if (contents.length === 0 && role !== "user") continue; // must start with user
+        const last = contents[contents.length - 1];
+        if (last && last.role === role) {
+          // merge consecutive same-role turns
+          last.parts[0].text += "\n" + text;
+        } else {
+          contents.push({ role, parts: [{ text }] });
+        }
+      }
+      // Ensure last turn is the user's new inbound message.
+      const lastTurn = contents[contents.length - 1];
+      if (!lastTurn || lastTurn.role !== "user") {
+        contents.push({ role: "user", parts: [{ text: inboundBody }] });
+      }
 
       const model = "gemini-2.5-flash";
-      await logStep(supabaseAdmin, workspaceId, "Gemini started", { model });
+      await logStep(supabaseAdmin, workspaceId, "Gemini started", {
+        model,
+        turns: contents.length,
+        last_role: contents[contents.length - 1]?.role,
+      });
       const t0 = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
