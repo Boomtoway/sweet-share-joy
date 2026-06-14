@@ -203,9 +203,11 @@ app.post('/send', async (req, res) => {
     const { to, message } = req.body ?? {};
     if (!to || !message) return res.status(400).json({ error: 'to and message required' });
     if (connState !== 'connected') return res.status(409).json({ error: 'not connected' });
-    // `to` MUST be a full WhatsApp JID (e.g. `12345@s.whatsapp.net` or `12345@lid`).
-    // Do not concatenate or modify — only fall back when no '@' present.
-    const jid = String(to).includes('@') ? String(to) : `${to}@s.whatsapp.net`;
+    const jid = String(to).trim();
+    if (!/^[^@\s]+@s\.whatsapp\.net$/i.test(jid)) {
+      log.error({ to }, 'blocked invalid whatsapp recipient');
+      return res.status(400).json({ error: 'invalid whatsapp recipient' });
+    }
     log.info({ to, jid }, 'sending message');
     const sent = await sock.sendMessage(jid, { text: String(message) });
     res.json({ ok: true, id: sent?.key?.id, jid });
