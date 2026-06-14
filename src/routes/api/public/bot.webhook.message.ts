@@ -168,6 +168,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           const receivedAt = Date.now();
           const raw = await request.json();
           const body = WebhookSchema.parse(raw);
+          console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
           const rawFrom = body.from ?? "";
@@ -182,6 +183,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             extractWhatsappJid(body.jid) ??
             normalizeLkPhoneToJid(body.phone);
           const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(body.from ?? body.phone);
+          console.log("REMOTE JID FOUND:", sourceRemoteJid);
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
