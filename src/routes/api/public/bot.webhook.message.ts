@@ -134,13 +134,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
 
-          queueLog(request, supabaseAdmin, workspaceId, "webhook_received", {
+          queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
             remote_jid: body.remote_jid,
             phone_before_save: body.from,
             preview: body.body.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
           });
+
 
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
           if (body.remote_jid) {
@@ -477,11 +478,12 @@ async function generateAndSend(args: {
       }
 
       const model = "gemini-2.5-flash";
-      await logStep(supabaseAdmin, workspaceId, "Gemini started", {
+      await logStep(supabaseAdmin, workspaceId, "ai_started", {
         model,
         turns: contents.length,
         last_role: contents[contents.length - 1]?.role,
       });
+
       const t0 = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
@@ -514,7 +516,7 @@ async function generateAndSend(args: {
           .join("")
           ?.trim();
         const finishReason = json?.candidates?.[0]?.finishReason;
-        await logStep(supabaseAdmin, workspaceId, "Gemini completed", {
+        await logStep(supabaseAdmin, workspaceId, "ai_completed", {
           ms: Date.now() - t0,
           length: replyText?.length ?? 0,
           model,
@@ -523,11 +525,7 @@ async function generateAndSend(args: {
           safety_ratings: json?.candidates?.[0]?.safetyRatings,
           usage: json?.usageMetadata,
         });
-        await logStep(supabaseAdmin, workspaceId, "gemini_done", {
-          ms: Date.now() - t0,
-          length: replyText?.length ?? 0,
-          finish_reason: finishReason,
-        });
+
         if (!replyText) {
           await logStep(
             supabaseAdmin,
@@ -572,10 +570,12 @@ async function generateAndSend(args: {
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
-    await logStep(supabaseAdmin, workspaceId, "Reply saved (pending)", {
+    await logStep(supabaseAdmin, workspaceId, "reply_saved", {
       length: replyText.length,
       message_id: outboundMsg?.id,
+      delivery_status: "pending",
     });
+
 
     // Human-like delay
     const delaySec =
@@ -610,14 +610,16 @@ async function generateAndSend(args: {
     }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
     const payload = { to: targetJid, message: replyText };
-    await logStep(supabaseAdmin, workspaceId, "VPS /send request", {
+    await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
+      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to: targetJid,
       remote_jid: remoteJid,
       phone_before_save: fromPhone,
       message_length: replyText.length,
       message_id: outboundMsg?.id,
     });
+
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -635,8 +637,8 @@ async function generateAndSend(args: {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        `VPS /send response ${res.status}`,
-        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid },
+        "vps_send_response",
+        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid, message_id: outboundMsg?.id },
         res.ok ? "info" : "error",
       );
       if (!res.ok) {
@@ -644,8 +646,7 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
-        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-          ok: false,
+        await logStep(supabaseAdmin, workspaceId, "vps_send_error", {
           status: res.status,
           error: String(err).slice(0, 800),
           to: targetJid,
@@ -665,30 +666,19 @@ async function generateAndSend(args: {
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
-        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-          ok: true,
-          status: res.status,
-          to: targetJid,
-          provider_message_id: parsed?.id ?? null,
-          message_id: outboundMsg.id,
-        });
+
       }
     } catch (sendErr: any) {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        `VPS /send fetch failed: ${sendErr?.message}`,
-        { url, stack: sendErr?.stack?.slice(0, 400) },
+        "vps_send_error",
+        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to: targetJid, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
-      await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-        ok: false,
-        error: sendErr?.message ?? "unknown",
-        to: targetJid,
-        message_id: outboundMsg?.id,
-      }, "error");
     }
+
   } catch (e: any) {
     await logStep(
       supabaseAdmin,
