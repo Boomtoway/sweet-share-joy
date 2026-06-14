@@ -38,7 +38,61 @@ async function logStep(
   }
 }
 
+async function timed<T>(
+  supabaseAdmin: any,
+  workspaceId: string,
+  name: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const t0 = Date.now();
+  try {
+    const r = await fn();
+    const ms = Date.now() - t0;
+    if (ms > 5000) {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `SLOW query "${name}" took ${ms}ms`,
+        { name, ms },
+        "warn",
+      );
+    } else {
+      console.log(`[webhook] ${name} ${ms}ms`);
+    }
+    return r;
+  } catch (err: any) {
+    const ms = Date.now() - t0;
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      `Query "${name}" failed after ${ms}ms: ${err?.message}`,
+      { name, ms, stack: err?.stack?.slice(0, 400) },
+      "error",
+    );
+    throw err;
+  }
+}
+
+function scheduleBackground(work: Promise<unknown>) {
+  // Try every known mechanism so the task isn't killed when we return.
+  try {
+    const g: any = globalThis as any;
+    if (g.EdgeRuntime?.waitUntil) return g.EdgeRuntime.waitUntil(work);
+  } catch {}
+  try {
+    // h3 / nitro event (TanStack Start runtime)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const h3 = require("h3");
+    const ev = h3.getEvent?.();
+    const ctx = ev?.context?.cloudflare?.context;
+    if (ctx?.waitUntil) return ctx.waitUntil(work);
+  } catch {}
+  // Fallback: detached promise (may be killed on some runtimes)
+  work.catch(() => {});
+}
+
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
+
   server: {
     handlers: {
       OPTIONS: async () =>
