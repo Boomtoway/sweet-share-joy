@@ -408,7 +408,7 @@ async function generateAndSend(args: {
         "error",
       );
     } else {
-      await logStep(supabaseAdmin, workspaceId, "WhatsApp reply sent", {
+      await logStep(supabaseAdmin, workspaceId, "Reply sent", {
         to: fromPhone,
         url,
       });
