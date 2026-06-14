@@ -283,7 +283,7 @@ function AiSettingsPage() {
         </CardContent>
       </Card>
 
-
+      <Card>
         <CardHeader>
           <CardTitle>Sales playbook</CardTitle>
           <CardDescription>Edit how the agent talks, sells, and closes</CardDescription>
