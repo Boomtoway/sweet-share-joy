@@ -15,20 +15,26 @@ const cors = {
   "Content-Type": "application/json",
 };
 
-/**
- * Fire-and-forget the async work. On Cloudflare Workers the request context
- * is kept alive via waitUntil when available; otherwise we just don't await.
- */
-function runInBackground(promise: Promise<unknown>) {
+async function logStep(
+  supabaseAdmin: any,
+  workspaceId: string,
+  message: string,
+  metadata: Record<string, unknown> = {},
+  level: "info" | "warn" | "error" = "info",
+) {
+  console.log(`[webhook] ${message}`, metadata);
   try {
-    // @ts-expect-error — Cloudflare global available at runtime in workerd
-    const ctx = globalThis.__CF_EXECUTION_CONTEXT__ ?? globalThis.executionContext;
-    if (ctx?.waitUntil) {
-      ctx.waitUntil(promise.catch((e: any) => console.error("[webhook bg]", e)));
-      return;
-    }
-  } catch {}
-  promise.catch((e) => console.error("[webhook bg]", e));
+    await supabaseAdmin.from("bot_logs").insert({
+      workspace_id: workspaceId,
+      bot_name: "whatsapp-vps",
+      channel: "whatsapp",
+      level,
+      message,
+      metadata,
+    });
+  } catch (e) {
+    console.error("[webhook] log insert failed", e);
+  }
 }
 
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
