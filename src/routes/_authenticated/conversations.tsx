@@ -353,3 +353,42 @@ function ConversationsPage() {
     </div>
   );
 }
+
+function TestVpsSendButton() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch("https://bot.statapplkmarketing.shop/send", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer startapplk-bot-12345",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ to: "94740123466", message: "Lovable VPS send test" }),
+      });
+      const text = await res.text();
+      setResult(`HTTP ${res.status}\n${text}`);
+    } catch (e: any) {
+      setResult(`ERROR: ${e?.message ?? String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={run} disabled={loading}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test VPS Send"}
+      </Button>
+      {result && (
+        <pre className="max-w-[480px] overflow-auto rounded border bg-muted p-2 text-xs whitespace-pre-wrap">
+          {result}
+        </pre>
+      )}
+    </div>
+  );
+}
