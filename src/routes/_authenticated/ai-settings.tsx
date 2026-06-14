@@ -45,6 +45,9 @@ function AiSettingsPage() {
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["ai-settings"],
     queryFn: () => fetchSettings(),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const [form, setForm] = useState<Record<string, any>>({});
