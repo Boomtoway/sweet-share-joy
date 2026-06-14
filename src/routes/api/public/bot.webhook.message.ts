@@ -16,6 +16,17 @@ const cors = {
   "Content-Type": "application/json",
 };
 
+const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
+
+function validWhatsappJid(value: unknown): string | null {
+  const jid = typeof value === "string" ? value.trim() : "";
+  return whatsappJidPattern.test(jid) ? jid : null;
+}
+
+function jidUser(jid: string) {
+  return jid.split("@")[0];
+}
+
 async function logStep(
   supabaseAdmin: any,
   workspaceId: string,
@@ -133,10 +144,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           const body = WebhookSchema.parse(raw);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
+          const sourceRemoteJid = validWhatsappJid(body.remote_jid) ?? validWhatsappJid(body.from);
+          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : body.from;
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
             remote_jid: body.remote_jid,
+            source_remote_jid: sourceRemoteJid,
             phone_before_save: body.from,
             preview: body.body.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
@@ -144,18 +158,27 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
 
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
-          if (body.remote_jid) {
-            const expected = body.remote_jid.split("@")[0];
+          if (sourceRemoteJid) {
+            const expected = jidUser(sourceRemoteJid);
             if (expected !== body.from) {
               queueLog(
                 request,
                 supabaseAdmin,
                 workspaceId,
                 "phone_saved differs from remoteJid.split('@')[0]",
-                { remote_jid: body.remote_jid, from: body.from, expected },
+                { remote_jid: sourceRemoteJid, from: body.from, expected },
                 "error",
               );
             }
+          } else if (body.remote_jid) {
+            queueLog(
+              request,
+              supabaseAdmin,
+              workspaceId,
+              "invalid_remote_jid_payload",
+              { remote_jid: body.remote_jid, from: body.from },
+              "error",
+            );
           }
 
 
@@ -204,8 +227,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             .from("contacts")
             .select("*")
             .eq("workspace_id", workspaceId);
-          const { data: contactByJid } = body.remote_jid
-            ? await lookupQuery.eq("remote_jid", body.remote_jid).maybeSingle()
+          const { data: contactByJid } = sourceRemoteJid
+            ? await lookupQuery.eq("remote_jid", sourceRemoteJid).maybeSingle()
             : { data: null as any };
           let contact = contactByJid as any;
           if (!contact) {
@@ -213,7 +236,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .from("contacts")
               .select("*")
               .eq("workspace_id", workspaceId)
-              .eq("phone", body.from)
+              .eq("phone", sourcePhone)
               .maybeSingle();
             contact = contactByPhone;
           }
@@ -222,22 +245,23 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .from("contacts")
               .insert({
                 workspace_id: workspaceId,
-                phone: body.from,
-                remote_jid: body.remote_jid ?? null,
-                name: body.contact_name ?? body.from,
+                phone: sourcePhone,
+                remote_jid: sourceRemoteJid,
+                name: body.contact_name ?? sourcePhone,
                 channel: "whatsapp",
                 external_id: body.external_id,
               })
               .select()
               .single();
             contact = ins.data;
-          } else if (body.remote_jid && contact.remote_jid !== body.remote_jid) {
+          } else if (sourceRemoteJid && contact.remote_jid !== sourceRemoteJid) {
             // Backfill remote_jid on existing contact
             await supabaseAdmin
               .from("contacts")
-              .update({ remote_jid: body.remote_jid })
+              .update({ remote_jid: sourceRemoteJid, phone: sourcePhone })
               .eq("id", contact.id);
-            contact.remote_jid = body.remote_jid;
+            contact.remote_jid = sourceRemoteJid;
+            contact.phone = sourcePhone;
           }
           if (!contact) {
             return new Response(JSON.stringify({ error: "contact failed" }), {
