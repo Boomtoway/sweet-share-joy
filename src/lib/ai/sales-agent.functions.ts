@@ -213,3 +213,23 @@ export const updateAiSettings = createServerFn({ method: "POST" })
     if (error) throw error;
     return updated;
   });
+
+export const getRecentBotErrors = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: profile } = await context.supabase
+      .from("profiles")
+      .select("workspace_id")
+      .eq("id", context.userId)
+      .single();
+    if (!profile?.workspace_id) return { workspace_id: null, errors: [] };
+    const { data, error } = await context.supabase
+      .from("bot_logs")
+      .select("created_at, level, message, metadata")
+      .eq("workspace_id", profile.workspace_id)
+      .in("level", ["error", "warn"])
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    return { workspace_id: profile.workspace_id, errors: data ?? [] };
+  });
