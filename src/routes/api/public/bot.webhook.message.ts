@@ -179,7 +179,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             extractWhatsappJid(rawFrom) ??
             normalizeLkPhoneToJid(rawFrom) ??
             normalizeLkPhoneToJid(body.phone);
-          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(rawFrom) ?? rawFrom.trim();
+          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(rawFrom);
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
@@ -268,7 +268,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             ? await lookupQuery.eq("remote_jid", sourceRemoteJid).maybeSingle()
             : { data: null as any };
           let contact = contactByJid as any;
-          if (!contact) {
+          if (!contact && sourcePhone) {
             const { data: contactByPhone } = await supabaseAdmin
               .from("contacts")
               .select("*")
@@ -284,7 +284,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 workspace_id: workspaceId,
                 phone: sourcePhone,
                 remote_jid: sourceRemoteJid,
-                name: body.contact_name ?? sourcePhone,
+                name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
               })
