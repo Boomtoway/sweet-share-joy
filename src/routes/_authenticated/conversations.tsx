@@ -285,6 +285,9 @@ function ConversationsPage() {
                         {m.delivery_status === "failed" && m.delivery_error && (
                           <div className="text-[10px] mt-1 text-destructive">{m.delivery_error}</div>
                         )}
+                        {m.direction === "outbound" && m.target_jid && (
+                          <div className="text-[10px] mt-1 opacity-70">→ {m.target_jid}</div>
+                        )}
                       </div>
                     </div>
                   ))}
