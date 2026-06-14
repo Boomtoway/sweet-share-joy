@@ -208,7 +208,9 @@ function ConversationsPage() {
           <Switch id="unread" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
           <Label htmlFor="unread">Unread only</Label>
         </div>
+        <TestVpsSendButton />
       </div>
+
 
       <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-[280px_1fr_300px] gap-4">
         <Card className="flex flex-col min-h-0">
@@ -348,6 +350,45 @@ function ConversationsPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function TestVpsSendButton() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch("https://bot.statapplkmarketing.shop/send", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer startapplk-bot-12345",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ to: "94740123466", message: "Lovable VPS send test" }),
+      });
+      const text = await res.text();
+      setResult(`HTTP ${res.status}\n${text}`);
+    } catch (e: any) {
+      setResult(`ERROR: ${e?.message ?? String(e)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={run} disabled={loading}>
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test VPS Send"}
+      </Button>
+      {result && (
+        <pre className="max-w-[480px] overflow-auto rounded border bg-muted p-2 text-xs whitespace-pre-wrap">
+          {result}
+        </pre>
+      )}
     </div>
   );
 }
