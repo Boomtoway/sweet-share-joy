@@ -610,14 +610,16 @@ async function generateAndSend(args: {
     }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
     const payload = { to: targetJid, message: replyText };
-    await logStep(supabaseAdmin, workspaceId, "VPS /send request", {
+    await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
+      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to: targetJid,
       remote_jid: remoteJid,
       phone_before_save: fromPhone,
       message_length: replyText.length,
       message_id: outboundMsg?.id,
     });
+
     try {
       const res = await fetch(url, {
         method: "POST",
