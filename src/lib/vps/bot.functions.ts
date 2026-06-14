@@ -3,7 +3,18 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
+
+function pickVpsRecipient(conversation: any, contact: any): string {
+  const raw =
+    (conversation && typeof conversation.remote_jid === "string" && conversation.remote_jid) ||
+    (contact && typeof contact.phone === "string" && contact.phone) ||
+    TEST_VPS_RECIPIENT;
+  let digits = String(raw).split("@")[0].replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = "94" + digits.slice(1);
+  return digits || TEST_VPS_RECIPIENT;
+}
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -93,17 +104,28 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ManualSendSchema.parse(i))
   .handler(async ({ context, data }) => {
-    const { workspaceId, session } = await getSession(context.supabase, context.userId);
-    if (!session?.vps_api_token) throw new Error("VPS API token not configured");
+    const { workspaceId } = await getSession(context.supabase, context.userId);
 
     const messageText = data.message.trim();
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")
-      .select("id, workspace_id")
+      .select("id, workspace_id, contact_id, remote_jid")
       .eq("id", data.conversationId)
       .eq("workspace_id", workspaceId)
       .single();
     if (conversationError) throw conversationError;
+
+    let contact: any = null;
+    if (conversation.contact_id) {
+      const { data: c } = await context.supabase
+        .from("contacts")
+        .select("id, phone, remote_jid")
+        .eq("id", conversation.contact_id)
+        .maybeSingle();
+      contact = c;
+    }
+
+    const to = pickVpsRecipient(conversation, contact);
 
     const { data: outbound, error: insertError } = await context.supabase
       .from("messages")
@@ -114,7 +136,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         sender: "human",
         body: messageText,
         delivery_status: "pending",
-        target_jid: TEST_VPS_RECIPIENT,
+        target_jid: to,
       })
       .select()
       .single();
@@ -127,7 +149,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         .eq("id", outbound.id);
     };
 
-    const sendBody = { to: TEST_VPS_RECIPIENT, message: messageText };
+    const sendBody = { to, message: messageText };
     console.log("SENDING_TO_VPS_URL", DIRECT_VPS_SEND_URL);
     console.log("SEND_BODY", sendBody);
 
@@ -137,7 +159,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.vps_api_token}`,
+          Authorization: `Bearer ${DIRECT_VPS_TOKEN}`,
         },
         body: JSON.stringify(sendBody),
       });

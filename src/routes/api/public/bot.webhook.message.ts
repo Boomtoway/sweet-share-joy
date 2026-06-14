@@ -21,7 +21,18 @@ const cors = {
 };
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
+
+function pickVpsRecipient(conversation: any, contact: any): string {
+  const raw =
+    (conversation && typeof conversation.remote_jid === "string" && conversation.remote_jid) ||
+    (contact && typeof contact.phone === "string" && contact.phone) ||
+    TEST_VPS_RECIPIENT;
+  let digits = String(raw).split("@")[0].replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = "94" + digits.slice(1);
+  return digits || TEST_VPS_RECIPIENT;
+}
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 
@@ -693,14 +704,8 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Emergency test send path: always call the direct VPS /send endpoint with the hardcoded recipient.
-    if (!session.vps_api_token) {
-      const err = "VPS token not configured";
-      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
-      await markFailed(err);
-      return;
-    }
-    const to = TEST_VPS_RECIPIENT;
+    // Direct VPS send — mirror the working "Test VPS Send" fetch.
+    const to = pickVpsRecipient(conversation, contact);
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
@@ -714,7 +719,7 @@ async function generateAndSend(args: {
     console.log("SEND_BODY", payload);
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
-      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
+      authorization: `Bearer ${DIRECT_VPS_TOKEN.slice(0, 6)}…`,
       to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
@@ -729,7 +734,7 @@ async function generateAndSend(args: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.vps_api_token}`,
+          Authorization: `Bearer ${DIRECT_VPS_TOKEN}`,
         },
         body: JSON.stringify(payload),
       });
