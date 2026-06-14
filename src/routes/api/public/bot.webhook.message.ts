@@ -269,51 +269,74 @@ async function generateAndSend(args: {
       });
     }
 
-    // ---- Gemini AI fallback ----
+    // ---- Gemini AI fallback (direct Google Generative Language API) ----
     if (!replyText) {
-      await logStep(supabaseAdmin, workspaceId, "Gemini started", {});
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
+        await logStep(supabaseAdmin, workspaceId, "GEMINI_API_KEY missing", {}, "error");
+        return;
+      }
+      await logStep(supabaseAdmin, workspaceId, "Gemini key found", {});
+
+      const { data: aiSettings } = await supabaseAdmin
+        .from("ai_settings")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .single();
+      if (!aiSettings) {
+        await logStep(supabaseAdmin, workspaceId, "No ai_settings row", {}, "error");
+        return;
+      }
+
+      const sys = `You are a professional human sales assistant for WhatsApp. Reply naturally in the customer's language (English, Tamil, or Sinhala). Keep it short. Ask one question at a time. Never reveal you are AI.\n\nPersonality: ${aiSettings.personality}\nTone: ${aiSettings.business_tone}\nSales script: ${aiSettings.sales_script}\nPricing: ${aiSettings.pricing_rules}\nFAQ: ${aiSettings.faq_answers}\nObjections: ${aiSettings.objection_handling}`;
+
+      const { data: history } = await supabaseAdmin
+        .from("messages")
+        .select("direction, body")
+        .eq("conversation_id", conversation.id)
+        .order("created_at", { ascending: true })
+        .limit(10);
+
+      const contents = (history ?? []).map((m: any) => ({
+        role: m.direction === "inbound" ? "user" : "model",
+        parts: [{ text: m.body ?? "" }],
+      }));
+
+      const model = "gemini-2.5-flash";
+      await logStep(supabaseAdmin, workspaceId, "Gemini started", { model });
       const t0 = Date.now();
       try {
-        const { createLovableAiGatewayProvider } = await import("@/lib/ai/gateway.server");
-        const { generateText } = await import("ai");
-        const { data: aiSettings } = await supabaseAdmin
-          .from("ai_settings")
-          .select("*")
-          .eq("workspace_id", workspaceId)
-          .single();
-        if (!aiSettings) {
-          await logStep(supabaseAdmin, workspaceId, "No ai_settings row", {}, "error");
-          return;
-        }
-        const key = process.env.LOVABLE_API_KEY;
-        if (!key) {
-          await logStep(supabaseAdmin, workspaceId, "LOVABLE_API_KEY missing", {}, "error");
-          return;
-        }
-        const gateway = createLovableAiGatewayProvider(key);
-        const sys = `You are a professional human sales assistant for WhatsApp. Reply naturally in the customer's language (English, Tamil, or Sinhala). Keep it short. Ask one question at a time. Never reveal you are AI.\n\nPersonality: ${aiSettings.personality}\nTone: ${aiSettings.business_tone}\nSales script: ${aiSettings.sales_script}\nPricing: ${aiSettings.pricing_rules}\nFAQ: ${aiSettings.faq_answers}\nObjections: ${aiSettings.objection_handling}`;
-        const { data: history } = await supabaseAdmin
-          .from("messages")
-          .select("direction, body")
-          .eq("conversation_id", conversation.id)
-          .order("created_at", { ascending: true })
-          .limit(10);
-        const msgs = (history ?? []).map((m: any) => ({
-          role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-          content: m.body ?? "",
-        }));
-        const r = await generateText({
-          model: gateway(aiSettings.model || "google/gemini-3-flash-preview"),
-          system: sys,
-          messages: msgs,
-          temperature: Number(aiSettings.temperature ?? 0.7),
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: sys }] },
+            contents,
+            generationConfig: { temperature: Number(aiSettings.temperature ?? 0.7) },
+          }),
         });
-        replyText = r.text?.trim();
+        const json: any = await res.json();
+        if (!res.ok) {
+          await logStep(
+            supabaseAdmin,
+            workspaceId,
+            `Gemini HTTP ${res.status}`,
+            { body: JSON.stringify(json).slice(0, 500) },
+            "error",
+          );
+          return;
+        }
+        replyText = json?.candidates?.[0]?.content?.parts
+          ?.map((p: any) => p.text)
+          .filter(Boolean)
+          .join("")
+          ?.trim();
         await logStep(supabaseAdmin, workspaceId, "Gemini completed", {
           ms: Date.now() - t0,
           length: replyText?.length ?? 0,
-          model: aiSettings.model,
-          finish_reason: (r as any).finishReason,
+          model,
+          finish_reason: json?.candidates?.[0]?.finishReason,
         });
       } catch (err: any) {
         await logStep(
@@ -385,7 +408,7 @@ async function generateAndSend(args: {
         "error",
       );
     } else {
-      await logStep(supabaseAdmin, workspaceId, "WhatsApp reply sent", {
+      await logStep(supabaseAdmin, workspaceId, "Reply sent", {
         to: fromPhone,
         url,
       });
