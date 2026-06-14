@@ -601,7 +601,20 @@ async function generateAndSend(args: {
       await markFailed(err);
       return;
     }
-    const targetJid = remoteJid && remoteJid.includes("@") ? remoteJid : fromPhone;
+    // Normalize to a valid WhatsApp JID. Never send contact_id or local-format numbers.
+    // 1) If we already have a JID (contains "@"), use it as-is.
+    // 2) Otherwise, take digits only, strip a leading 0, prepend default country code (94 = LK), then "@s.whatsapp.net".
+    const defaultCc = (session.default_country_code as string | undefined)?.replace(/\D/g, "") || "94";
+    const toJid = (raw: string | null | undefined): string => {
+      const s = (raw ?? "").toString().trim();
+      if (s.includes("@")) return s;
+      let digits = s.replace(/\D/g, "");
+      if (digits.startsWith("00")) digits = digits.slice(2);
+      if (digits.startsWith("0")) digits = defaultCc + digits.slice(1);
+      else if (!digits.startsWith(defaultCc) && digits.length <= 10) digits = defaultCc + digits;
+      return `${digits}@s.whatsapp.net`;
+    };
+    const targetJid = toJid(remoteJid || fromPhone);
     if (outboundMsg?.id) {
       await supabaseAdmin
         .from("messages")
