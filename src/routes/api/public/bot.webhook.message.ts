@@ -21,7 +21,6 @@ const cors = {
 };
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
-const DIRECT_VPS_API_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
@@ -695,6 +694,12 @@ async function generateAndSend(args: {
     };
 
     // Emergency test send path: always call the direct VPS /send endpoint with the hardcoded recipient.
+    if (!session.vps_api_token) {
+      const err = "VPS token not configured";
+      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
+      await markFailed(err);
+      return;
+    }
     const to = TEST_VPS_RECIPIENT;
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
@@ -709,7 +714,7 @@ async function generateAndSend(args: {
     console.log("SEND_BODY", payload);
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
-      authorization: `Bearer ${DIRECT_VPS_API_TOKEN.slice(0, 6)}…`,
+      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
@@ -724,7 +729,7 @@ async function generateAndSend(args: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${DIRECT_VPS_API_TOKEN}`,
+          Authorization: `Bearer ${session.vps_api_token}`,
         },
         body: JSON.stringify(payload),
       });
