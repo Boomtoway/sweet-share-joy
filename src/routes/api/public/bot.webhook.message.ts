@@ -634,39 +634,56 @@ async function generateAndSend(args: {
       try {
         parsed = JSON.parse(txt);
       } catch {}
-      await logStep(
-        supabaseAdmin,
-        workspaceId,
-        "vps_send_response",
-        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid, message_id: outboundMsg?.id },
-        res.ok ? "info" : "error",
-      );
-      if (!res.ok) {
+      await logStep(supabaseAdmin, workspaceId, "vps_send_status", {
+        status: res.status,
+        http_ok: res.ok,
+        provider_ok: typeof parsed === "object" ? parsed?.ok : undefined,
+        to: targetJid,
+        message_id: outboundMsg?.id,
+      });
+      await logStep(supabaseAdmin, workspaceId, "vps_send_body", {
+        request: payload,
+        response: txt.slice(0, 800),
+        url,
+        message_id: outboundMsg?.id,
+      });
+
+      const providerOk = typeof parsed === "object" ? parsed?.ok === true : false;
+      if (res.ok && providerOk) {
+        if (outboundMsg?.id) {
+          await supabaseAdmin
+            .from("messages")
+            .update({
+              delivery_status: "sent",
+              provider_message_id: parsed?.id ?? null,
+              delivered_at: new Date().toISOString(),
+            })
+            .eq("id", outboundMsg.id);
+        }
+        await logStep(supabaseAdmin, workspaceId, "vps_send_success", {
+          to: targetJid,
+          provider_message_id: parsed?.id ?? null,
+          message_id: outboundMsg?.id,
+        });
+      } else {
         const err =
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
-        await logStep(supabaseAdmin, workspaceId, "vps_send_error", {
-          status: res.status,
-          error: String(err).slice(0, 800),
-          to: targetJid,
-          message_id: outboundMsg?.id,
-        }, "error");
-      } else if (outboundMsg?.id) {
-        await supabaseAdmin
-          .from("messages")
-          .update({
-            delivery_status: "sent",
-            provider_message_id: parsed?.id ?? null,
-            delivered_at: new Date().toISOString(),
-          })
-          .eq("id", outboundMsg.id);
-        await logStep(supabaseAdmin, workspaceId, "Reply sent", {
-          to: targetJid,
-          provider_message_id: parsed?.id ?? null,
-          message_id: outboundMsg.id,
-        });
-
+        await logStep(
+          supabaseAdmin,
+          workspaceId,
+          "vps_send_failed",
+          {
+            status: res.status,
+            http_ok: res.ok,
+            provider_ok: providerOk,
+            error: String(err).slice(0, 800),
+            to: targetJid,
+            message_id: outboundMsg?.id,
+          },
+          "error",
+        );
       }
     } catch (sendErr: any) {
       await logStep(
