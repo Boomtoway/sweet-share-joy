@@ -91,7 +91,7 @@ function ConversationsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("conversations")
-      .select("*, contact:contacts(id,name,phone,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
+      .select("*, contact:contacts(id,name,phone,remote_jid,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
       .eq("workspace_id", wsId)
       .order("last_message_at", { ascending: false, nullsFirst: false });
     setLoading(false);
