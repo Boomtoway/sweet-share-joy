@@ -717,18 +717,17 @@ async function generateAndSend(args: {
     }
     const url = DIRECT_VPS_SEND_URL;
     const payload = { to, message: replyText };
-    console.log("SENDING_TO_VPS_URL", url);
-    console.log("SEND_BODY", payload);
-    await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
+    console.log("START_SEND", { message_id: outboundMsg?.id });
+    console.log("SEND_URL", url);
+    console.log("SEND_TO", to);
+    console.log("SEND_MESSAGE", replyText);
+    await logStep(supabaseAdmin, workspaceId, "START_SEND", {
       url,
-      authorization: `Bearer ${DIRECT_VPS_TOKEN.slice(0, 6)}…`,
       to,
+      message: replyText,
+      message_id: outboundMsg?.id,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
-      remote_jid: remoteJid,
-      phone_before_save: fromPhone,
-      message_length: replyText.length,
-      message_id: outboundMsg?.id,
     });
 
     try {
@@ -746,17 +745,12 @@ async function generateAndSend(args: {
         parsed = JSON.parse(txt);
       } catch {}
       console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: parsed });
-      await logStep(supabaseAdmin, workspaceId, "vps_send_status", {
+      await logStep(supabaseAdmin, workspaceId, "VPS_RESPONSE", {
         status: res.status,
         http_ok: res.ok,
         provider_ok: typeof parsed === "object" ? parsed?.ok : undefined,
+        body: typeof parsed === "string" ? parsed.slice(0, 800) : parsed,
         to,
-        message_id: outboundMsg?.id,
-      });
-      await logStep(supabaseAdmin, workspaceId, "vps_send_body", {
-        request: payload,
-        response: txt.slice(0, 800),
-        url,
         message_id: outboundMsg?.id,
       });
 
@@ -785,7 +779,7 @@ async function generateAndSend(args: {
         await logStep(
           supabaseAdmin,
           workspaceId,
-          "vps_send_failed",
+          "SEND_ERROR",
           {
             status: res.status,
             http_ok: res.ok,
@@ -798,10 +792,11 @@ async function generateAndSend(args: {
         );
       }
     } catch (sendErr: any) {
+      console.log("SEND_ERROR", sendErr?.message);
       await logStep(
         supabaseAdmin,
         workspaceId,
-        "vps_send_failed",
+        "SEND_ERROR",
         { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
         "error",
       );
