@@ -28,6 +28,7 @@ import { Route as AuthenticatedBusinessKnowledgeRouteImport } from './routes/_au
 import { Route as AuthenticatedApiSettingsRouteImport } from './routes/_authenticated/api-settings'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta.webhook'
+import { Route as ApiPublicBotDebugRouteImport } from './routes/api/public/bot.debug'
 import { Route as ApiPublicBotWebhookMessageRouteImport } from './routes/api/public/bot.webhook.message'
 
 const AuthRoute = AuthRouteImport.update({
@@ -128,6 +129,11 @@ const ApiPublicMetaWebhookRoute = ApiPublicMetaWebhookRouteImport.update({
   path: '/api/public/meta/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBotDebugRoute = ApiPublicBotDebugRouteImport.update({
+  id: '/api/public/bot/debug',
+  path: '/api/public/bot/debug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBotWebhookMessageRoute =
   ApiPublicBotWebhookMessageRouteImport.update({
     id: '/api/public/bot/webhook/message',
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/vps'
     | '/whatsapp'
+    | '/api/public/bot/debug'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesByTo: FileRoutesByTo
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/vps'
     | '/whatsapp'
+    | '/api/public/bot/debug'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   id:
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/vps'
     | '/_authenticated/whatsapp'
+    | '/api/public/bot/debug'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesById: FileRoutesById
@@ -271,6 +283,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicBotDebugRoute: typeof ApiPublicBotDebugRoute
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiPublicBotWebhookMessageRoute: typeof ApiPublicBotWebhookMessageRoute
 }
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bot/debug': {
+      id: '/api/public/bot/debug'
+      path: '/api/public/bot/debug'
+      fullPath: '/api/public/bot/debug'
+      preLoaderRoute: typeof ApiPublicBotDebugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/bot/webhook/message': {
       id: '/api/public/bot/webhook/message'
       path: '/api/public/bot/webhook/message'
@@ -463,6 +483,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicBotDebugRoute: ApiPublicBotDebugRoute,
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiPublicBotWebhookMessageRoute: ApiPublicBotWebhookMessageRoute,
 }

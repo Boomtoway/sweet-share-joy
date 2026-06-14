@@ -38,7 +38,55 @@ async function logStep(
   }
 }
 
+async function timed<T>(
+  supabaseAdmin: any,
+  workspaceId: string,
+  name: string,
+  fn: () => PromiseLike<T>,
+): Promise<T> {
+  const t0 = Date.now();
+  try {
+    const r = await fn();
+    const ms = Date.now() - t0;
+    if (ms > 5000) {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `SLOW query "${name}" took ${ms}ms`,
+        { name, ms },
+        "warn",
+      );
+    } else {
+      console.log(`[webhook] ${name} ${ms}ms`);
+    }
+    return r;
+  } catch (err: any) {
+    const ms = Date.now() - t0;
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      `Query "${name}" failed after ${ms}ms: ${err?.message}`,
+      { name, ms, stack: err?.stack?.slice(0, 400) },
+      "error",
+    );
+    throw err;
+  }
+}
+
+
+function scheduleBackground(request: Request, work: Promise<unknown>) {
+  work.catch(() => {});
+  try {
+    const g: any = globalThis as any;
+    if (g.EdgeRuntime?.waitUntil) return g.EdgeRuntime.waitUntil(work);
+  } catch {}
+  try {
+    (request as any).waitUntil?.(work);
+  } catch {}
+}
+
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
+
   server: {
     handlers: {
       OPTIONS: async () =>
@@ -80,11 +128,18 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           }
 
 
-          const { data: session } = await supabaseAdmin
-            .from("whatsapp_sessions")
-            .select("*")
-            .eq("workspace_id", workspaceId)
-            .single();
+          const sessionRes: any = await timed(
+            supabaseAdmin,
+            workspaceId,
+            "select whatsapp_sessions",
+            () =>
+              supabaseAdmin
+                .from("whatsapp_sessions")
+                .select("*")
+                .eq("workspace_id", workspaceId)
+                .single(),
+          );
+          const session = sessionRes?.data;
           if (!session || session.webhook_secret !== body.secret) {
             return new Response(JSON.stringify({ error: "Invalid secret" }), {
               status: 401,
@@ -274,10 +329,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               "error",
             ),
           );
-          // Best-effort: keep the worker alive after response in CF Workers.
-          try {
-            (request as any).waitUntil?.(work);
-          } catch {}
+          scheduleBackground(request, work);
 
 
           return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
