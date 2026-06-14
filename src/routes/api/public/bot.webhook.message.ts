@@ -694,28 +694,8 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via the direct VPS /send endpoint to the resolved inbound sender.
-    if (!session.vps_api_token) {
-      const err = "VPS token not configured";
-      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
-      await markFailed(err);
-      return;
-    }
-    const to = normalizeWhatsAppRecipient(
-      conversation.remote_jid || contact.remote_jid || contact.phone || remoteJid || fromPhone,
-    );
-    if (!to) {
-      const err = "No WhatsApp recipient found for auto reply";
-      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {
-        conversation_remote_jid: conversation.remote_jid,
-        contact_remote_jid: contact.remote_jid,
-        contact_phone: contact.phone,
-        remote_jid: remoteJid,
-        from_phone: fromPhone,
-      }, "error");
-      await markFailed(err);
-      return;
-    }
+    // Emergency test send path: always call the direct VPS /send endpoint with the hardcoded recipient.
+    const to = TEST_VPS_RECIPIENT;
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
@@ -729,7 +709,7 @@ async function generateAndSend(args: {
     console.log("SEND_BODY", payload);
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
-      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
+      authorization: `Bearer ${DIRECT_VPS_API_TOKEN.slice(0, 6)}…`,
       to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
@@ -744,7 +724,7 @@ async function generateAndSend(args: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.vps_api_token}`,
+          Authorization: `Bearer ${DIRECT_VPS_API_TOKEN}`,
         },
         body: JSON.stringify(payload),
       });
