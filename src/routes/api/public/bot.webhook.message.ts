@@ -798,11 +798,11 @@ async function generateAndSend(args: {
         );
       }
     } catch (sendErr: any) {
-      console.log("SEND_ERROR", sendErr?.message);
+      console.log("SEND_FAILED", sendErr?.message);
       await logStep(
         supabaseAdmin,
         workspaceId,
-        "SEND_ERROR",
+        "SEND_FAILED",
         { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
         "error",
       );
