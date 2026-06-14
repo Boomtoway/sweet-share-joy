@@ -348,10 +348,65 @@ async function generateAndSend(args: {
   fromPhone: string;
   remoteJid: string | null;
 }) {
-  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone, remoteJid } = args;
+  const { supabaseAdmin, session, conversation, contact, workspaceId, inboundBody, fromPhone, remoteJid } =
+    args;
 
 
   try {
+    await logStep(supabaseAdmin, workspaceId, "background_started", {
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+    });
+
+    // Auto-create lead
+    const { data: existingLead } = await supabaseAdmin
+      .from("leads")
+      .select("id")
+      .eq("contact_id", contact.id)
+      .maybeSingle();
+    if (!existingLead) {
+      await supabaseAdmin.from("leads").insert({
+        workspace_id: workspaceId,
+        contact_id: contact.id,
+        source: "whatsapp",
+        stage: "new",
+      } as any);
+    }
+
+    // ---- Risk gates ----
+    const blocked: string[] = [];
+    if (!session.ai_enabled) blocked.push("ai_off_global");
+    if (!contact.ai_enabled) blocked.push("ai_off_contact");
+    if (contact.human_takeover) blocked.push("human_takeover");
+    if (contact.is_blacklisted) blocked.push("blacklisted");
+    if (session.list_mode === "whitelist" && !contact.is_whitelisted) blocked.push("not_whitelisted");
+    if (session.list_mode === "blacklist" && contact.is_blacklisted) blocked.push("blacklisted_mode");
+    if (session.messages_today >= session.daily_limit) blocked.push("daily_limit");
+
+    if (/\b(human|agent|manager|real person|manussa|aalu|ஆள்|මනුස්ස)\b/i.test(inboundBody)) {
+      await supabaseAdmin.from("contacts").update({ human_takeover: true }).eq("id", contact.id);
+      blocked.push("human_requested");
+    }
+
+    if (blocked.length) {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `Auto-reply blocked: ${blocked.join(", ")}`,
+        { reasons: blocked },
+        "warn",
+      );
+      await supabaseAdmin.from("risk_logs").insert({
+        workspace_id: workspaceId,
+        conversation_id: conversation.id,
+        level: "info",
+        category: "blocked",
+        message: `Auto-reply blocked: ${blocked.join(", ")}`,
+        metadata: { reasons: blocked },
+      } as any);
+      return;
+    }
+
     // ---- Reply rules (keyword match) ----
     const { data: rules } = await supabaseAdmin
       .from("reply_rules")
