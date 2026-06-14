@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { sendManualWhatsAppMessage } from "@/lib/vps/bot.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,6 +67,7 @@ interface Lead {
 const STAGES: LeadStage[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 
 function ConversationsPage() {
+  const sendManualMessage = useServerFn(sendManualWhatsAppMessage);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [convs, setConvs] = useState<Conv[]>([]);
@@ -139,20 +142,19 @@ function ConversationsPage() {
 
   const sendReply = async () => {
     if (!active || !reply.trim() || !workspaceId) return;
+    const messageText = reply.trim();
     setSending(true);
-    const { data, error } = await supabase.from("messages").insert({
-      workspace_id: workspaceId,
-      conversation_id: active.id,
-      direction: "outbound",
-      sender: "human",
-      body: reply.trim(),
-    }).select().single();
-    setSending(false);
-    if (error) { toast.error(error.message); return; }
-    await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", active.id);
-    setMessages((m) => [...m, data as any]);
-    setReply("");
-    toast.success("Message sent");
+    try {
+      const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText } });
+      setMessages((m) => [...m, result.message as any]);
+      setConvs((cs) => cs.map((c) => (c.id === active.id ? { ...c, last_message_at: new Date().toISOString() } : c)));
+      setReply("");
+      toast.success("Message sent");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Message failed");
+    } finally {
+      setSending(false);
+    }
   };
 
   const toggleAi = async (enabled: boolean) => {

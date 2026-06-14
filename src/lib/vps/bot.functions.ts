@@ -2,6 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const TEST_VPS_RECIPIENT = "94740123466";
+
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
     .from("profiles")
@@ -66,6 +69,11 @@ const ConfigSchema = z.object({
   facebook_lead_only: z.boolean(),
 });
 
+const ManualSendSchema = z.object({
+  conversationId: z.string().uuid(),
+  message: z.string().trim().min(1).max(4000),
+});
+
 export const saveVpsConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ConfigSchema.parse(i))
@@ -79,6 +87,96 @@ export const saveVpsConfig = createServerFn({ method: "POST" })
       .single();
     if (error) throw error;
     return updated;
+  });
+
+export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => ManualSendSchema.parse(i))
+  .handler(async ({ context, data }) => {
+    const { workspaceId, session } = await getSession(context.supabase, context.userId);
+    if (!session?.vps_api_token) throw new Error("VPS API token not configured");
+
+    const messageText = data.message.trim();
+    const { data: conversation, error: conversationError } = await context.supabase
+      .from("conversations")
+      .select("id, workspace_id")
+      .eq("id", data.conversationId)
+      .eq("workspace_id", workspaceId)
+      .single();
+    if (conversationError) throw conversationError;
+
+    const { data: outbound, error: insertError } = await context.supabase
+      .from("messages")
+      .insert({
+        workspace_id: workspaceId,
+        conversation_id: conversation.id,
+        direction: "outbound",
+        sender: "human",
+        body: messageText,
+        delivery_status: "pending",
+        target_jid: TEST_VPS_RECIPIENT,
+      })
+      .select()
+      .single();
+    if (insertError) throw insertError;
+
+    const markFailed = async (err: string) => {
+      await context.supabase
+        .from("messages")
+        .update({ delivery_status: "failed", delivery_error: err.slice(0, 1000) })
+        .eq("id", outbound.id);
+    };
+
+    const sendBody = { to: TEST_VPS_RECIPIENT, message: messageText };
+    console.log("SENDING_TO_VPS_URL", DIRECT_VPS_SEND_URL);
+    console.log("SEND_BODY", sendBody);
+
+    let vpsSucceeded = false;
+    try {
+      const res = await fetch(DIRECT_VPS_SEND_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.vps_api_token}`,
+        },
+        body: JSON.stringify(sendBody),
+      });
+      const responseText = await res.text();
+      let responseBody: any = responseText;
+      try {
+        responseBody = JSON.parse(responseText);
+      } catch {}
+      console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: responseBody });
+
+      if (!res.ok || responseBody?.ok !== true) {
+        const err = responseBody?.error || responseText || `HTTP ${res.status}`;
+        await markFailed(`VPS ${res.status}: ${err}`);
+        throw new Error(`VPS ${res.status}: ${err}`);
+      }
+      vpsSucceeded = true;
+
+      const { data: sent, error: updateError } = await context.supabase
+        .from("messages")
+        .update({
+          delivery_status: "sent",
+          provider_message_id: responseBody?.id ?? null,
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", outbound.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+
+      await context.supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", conversation.id);
+
+      return { message: sent, response: responseBody };
+    } catch (e: any) {
+      if (!vpsSucceeded) await markFailed(e?.message ?? "VPS send failed");
+      throw e;
+    }
   });
 
 async function log(

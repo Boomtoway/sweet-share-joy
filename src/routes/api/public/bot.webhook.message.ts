@@ -20,6 +20,9 @@ const cors = {
   "Content-Type": "application/json",
 };
 
+const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const TEST_VPS_RECIPIENT = "94740123466";
+
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 
 function validWhatsappJid(value: unknown): string | null {
@@ -690,31 +693,14 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send — prefer WhatsApp JIDs, fallback to phone, never database ids.
-    if (!session.vps_endpoint || !session.vps_api_token) {
-      const err = "VPS endpoint/token not configured";
+    // Send via the direct VPS /send endpoint with the temporary hardcoded test recipient.
+    if (!session.vps_api_token) {
+      const err = "VPS token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    let to =
-      conversation.remote_jid ||
-      contact.remote_jid ||
-      contact.phone;
-
-    if (to && !to.includes("@s.whatsapp.net")) {
-      let digits = String(to).replace(/\D/g, "");
-      if (digits.startsWith("0")) digits = "94" + digits.slice(1);
-      to = `${digits}@s.whatsapp.net`;
-    }
-
-    if (!validWhatsappJid(to)) {
-      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, contact.phone=${contact.phone}, remote_jid=${remoteJid})`;
-      await logStep(supabaseAdmin, workspaceId, err, {}, "error");
-      await markFailed(err);
-      return;
-    }
-    console.log("SEND TO:", to);
+    const to = TEST_VPS_RECIPIENT;
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
@@ -722,8 +708,10 @@ async function generateAndSend(args: {
         .update({ target_jid: to })
         .eq("id", outboundMsg.id);
     }
-    const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
+    const url = DIRECT_VPS_SEND_URL;
     const payload = { to, message: replyText };
+    console.log("SENDING_TO_VPS_URL", url);
+    console.log("SEND_BODY", payload);
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
       authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
@@ -750,6 +738,7 @@ async function generateAndSend(args: {
       try {
         parsed = JSON.parse(txt);
       } catch {}
+      console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: parsed });
       await logStep(supabaseAdmin, workspaceId, "vps_send_status", {
         status: res.status,
         http_ok: res.ok,
