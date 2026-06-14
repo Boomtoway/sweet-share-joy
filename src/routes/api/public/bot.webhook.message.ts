@@ -721,11 +721,12 @@ async function generateAndSend(args: {
     }
     const url = DIRECT_VPS_SEND_URL;
     const payload = { to, message: replyText };
+    console.log("CALLING_VPS_SEND", { url, to, message_id: outboundMsg?.id });
     console.log("START_SEND", { message_id: outboundMsg?.id });
     console.log("SEND_URL", url);
     console.log("SEND_TO", to);
     console.log("SEND_MESSAGE", replyText);
-    await logStep(supabaseAdmin, workspaceId, "START_SEND", {
+    await logStep(supabaseAdmin, workspaceId, "CALLING_VPS_SEND", {
       url,
       to,
       message: replyText,
