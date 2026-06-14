@@ -316,6 +316,7 @@ function ConversationsPage() {
                 <div className="space-y-1">
                   <div><span className="text-muted-foreground">Name: </span>{active.contact?.name ?? "—"}</div>
                   <div><span className="text-muted-foreground">Phone: </span>{active.contact?.phone ?? "—"}</div>
+                  <div className="text-xs"><span className="text-muted-foreground">Remote JID: </span><code>{active.contact?.remote_jid ?? "—"}</code></div>
                   <div><span className="text-muted-foreground">Email: </span>{active.contact?.email ?? "—"}</div>
                   <div><span className="text-muted-foreground">Channel: </span>{active.channel?.type ?? "—"}</div>
                 </div>
