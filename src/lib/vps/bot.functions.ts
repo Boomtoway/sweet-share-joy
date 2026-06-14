@@ -153,8 +153,16 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     };
 
     const sendBody = { to, message: messageText };
-    console.log("SENDING_TO_VPS_URL", DIRECT_VPS_SEND_URL);
-    console.log("SEND_BODY", sendBody);
+    console.log("START_SEND", { message_id: outbound.id });
+    console.log("SEND_URL", DIRECT_VPS_SEND_URL);
+    console.log("SEND_TO", to);
+    console.log("SEND_MESSAGE", messageText);
+    await log(context.supabase, workspaceId, "info", "START_SEND", {
+      url: DIRECT_VPS_SEND_URL,
+      to,
+      message: messageText,
+      message_id: outbound.id,
+    });
 
     let vpsSucceeded = false;
     try {
@@ -172,6 +180,13 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         responseBody = JSON.parse(responseText);
       } catch {}
       console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: responseBody });
+      await log(context.supabase, workspaceId, "info", "VPS_RESPONSE", {
+        status: res.status,
+        http_ok: res.ok,
+        body: typeof responseBody === "string" ? responseBody.slice(0, 800) : responseBody,
+        to,
+        message_id: outbound.id,
+      });
 
       if (!res.ok || responseBody?.ok !== true) {
         const err = responseBody?.error || responseText || `HTTP ${res.status}`;
@@ -199,6 +214,14 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
 
       return { message: sent, response: responseBody };
     } catch (e: any) {
+      console.log("SEND_ERROR", e?.message);
+      await log(context.supabase, workspaceId, "error", "SEND_ERROR", {
+        error: e?.message,
+        stack: e?.stack?.slice(0, 400),
+        url: DIRECT_VPS_SEND_URL,
+        to,
+        message_id: outbound.id,
+      });
       if (!vpsSucceeded) await markFailed(e?.message ?? "VPS send failed");
       throw e;
     }
