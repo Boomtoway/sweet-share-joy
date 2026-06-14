@@ -208,7 +208,9 @@ function ConversationsPage() {
           <Switch id="unread" checked={unreadOnly} onCheckedChange={setUnreadOnly} />
           <Label htmlFor="unread">Unread only</Label>
         </div>
+        <TestVpsSendButton />
       </div>
+
 
       <div className="grid flex-1 min-h-0 grid-cols-1 md:grid-cols-[280px_1fr_300px] gap-4">
         <Card className="flex flex-col min-h-0">
