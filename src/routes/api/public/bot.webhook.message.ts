@@ -523,6 +523,11 @@ async function generateAndSend(args: {
           safety_ratings: json?.candidates?.[0]?.safetyRatings,
           usage: json?.usageMetadata,
         });
+        await logStep(supabaseAdmin, workspaceId, "gemini_done", {
+          ms: Date.now() - t0,
+          length: replyText?.length ?? 0,
+          finish_reason: finishReason,
+        });
         if (!replyText) {
           await logStep(
             supabaseAdmin,
@@ -639,6 +644,13 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
+        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+          ok: false,
+          status: res.status,
+          error: String(err).slice(0, 800),
+          to: targetJid,
+          message_id: outboundMsg?.id,
+        }, "error");
       } else if (outboundMsg?.id) {
         await supabaseAdmin
           .from("messages")
@@ -653,6 +665,13 @@ async function generateAndSend(args: {
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
+        await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+          ok: true,
+          status: res.status,
+          to: targetJid,
+          provider_message_id: parsed?.id ?? null,
+          message_id: outboundMsg.id,
+        });
       }
     } catch (sendErr: any) {
       await logStep(
@@ -663,6 +682,12 @@ async function generateAndSend(args: {
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
+      await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
+        ok: false,
+        error: sendErr?.message ?? "unknown",
+        to: targetJid,
+        message_id: outboundMsg?.id,
+      }, "error");
     }
   } catch (e: any) {
     await logStep(
