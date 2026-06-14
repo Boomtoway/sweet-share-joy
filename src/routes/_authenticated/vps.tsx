@@ -53,20 +53,35 @@ function VpsPage() {
 
   // Direct browser → VPS calls using saved URL + token (no internal /api/bot/* route).
   const callVps = async (path: string, method: "GET" | "POST" = "GET") => {
-    const base = (form?.vps_endpoint ?? "").replace(/\/$/, "");
-    const token = form?.vps_api_token ?? "";
+    const base = (form?.vps_endpoint ?? "").trim().replace(/\/$/, "");
+    const rawToken = (form?.vps_api_token ?? "").trim();
+    // tolerate users pasting "Bearer xxx" into the token field
+    const token = rawToken.replace(/^Bearer\s+/i, "");
     if (!base) throw new Error("Set VPS API URL first");
-    const res = await fetch(`${base}${path}`, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    if (!token) throw new Error("Set Bot API Token first");
+    let res: Response;
+    try {
+      res = await fetch(`${base}${path}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (e: any) {
+      // network / CORS / DNS / mixed-content
+      throw new Error(
+        `Cannot reach VPS at ${base}${path}. ${e?.message ?? "Network error"}. ` +
+          `Check the VPS is running, the URL is correct, HTTPS/mixed-content, and CORS is enabled on the bot.`,
+      );
+    }
     const text = await res.text();
     let body: any = text;
     try { body = JSON.parse(text); } catch {}
-    if (!res.ok) throw new Error(typeof body === "string" ? body : body?.error || `VPS ${res.status}`);
+    if (!res.ok) {
+      const msg = typeof body === "string" ? body : body?.error || body?.message || res.statusText;
+      throw new Error(`VPS ${res.status}: ${msg}`);
+    }
     return body;
   };
 
