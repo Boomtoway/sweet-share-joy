@@ -134,13 +134,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
 
-          queueLog(request, supabaseAdmin, workspaceId, "webhook_received", {
+          queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
             remote_jid: body.remote_jid,
             phone_before_save: body.from,
             preview: body.body.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
           });
+
 
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
           if (body.remote_jid) {
