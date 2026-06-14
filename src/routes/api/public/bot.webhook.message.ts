@@ -689,7 +689,7 @@ async function generateAndSend(args: {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        "vps_send_error",
+        "vps_send_failed",
         { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to: targetJid, message_id: outboundMsg?.id },
         "error",
       );
