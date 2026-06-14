@@ -156,12 +156,12 @@ app.use((req, res, next) => {
 });
 
 app.get('/api/bot/session-status', (_req, res) => {
-  res.json({ status: connState, has_qr: !!currentQR, error: lastError });
+  res.json({ status: connState, has_qr: !!currentQR, error: lastError, auth_paths: AUTH_PATHS });
 });
 
 // alias for spec
 app.get('/status', (_req, res) =>
-  res.json({ status: connState, has_qr: !!currentQR, error: lastError }),
+  res.json({ status: connState, has_qr: !!currentQR, error: lastError, auth_paths: AUTH_PATHS }),
 );
 
 app.get('/api/bot/qr', (_req, res) => {
