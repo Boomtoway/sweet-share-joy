@@ -42,7 +42,7 @@ async function timed<T>(
   supabaseAdmin: any,
   workspaceId: string,
   name: string,
-  fn: () => Promise<T>,
+  fn: () => PromiseLike<T>,
 ): Promise<T> {
   const t0 = Date.now();
   try {
@@ -72,6 +72,7 @@ async function timed<T>(
     throw err;
   }
 }
+
 
 function scheduleBackground(request: Request, work: Promise<unknown>) {
   work.catch(() => {});
