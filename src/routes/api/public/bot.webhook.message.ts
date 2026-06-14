@@ -570,10 +570,12 @@ async function generateAndSend(args: {
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
-    await logStep(supabaseAdmin, workspaceId, "Reply saved (pending)", {
+    await logStep(supabaseAdmin, workspaceId, "reply_saved", {
       length: replyText.length,
       message_id: outboundMsg?.id,
+      delivery_status: "pending",
     });
+
 
     // Human-like delay
     const delaySec =
