@@ -478,11 +478,12 @@ async function generateAndSend(args: {
       }
 
       const model = "gemini-2.5-flash";
-      await logStep(supabaseAdmin, workspaceId, "Gemini started", {
+      await logStep(supabaseAdmin, workspaceId, "ai_started", {
         model,
         turns: contents.length,
         last_role: contents[contents.length - 1]?.role,
       });
+
       const t0 = Date.now();
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
