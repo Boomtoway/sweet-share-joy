@@ -311,7 +311,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             contact_id: contact.id,
             remote_jid: contact.remote_jid,
             phone_saved: contact.phone,
-            phone_before_save: body.from,
+            phone_before_save: rawFrom,
           });
 
 
@@ -362,7 +362,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conversation_id: conv.id,
             direction: "inbound",
             sender: "contact",
-            body: body.body,
+            body: inboundText,
           });
           await supabaseAdmin
             .from("conversations")
@@ -382,7 +382,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conversation: conv,
             contact,
             workspaceId,
-            inboundBody: body.body,
+            inboundBody: inboundText,
             fromPhone: sourcePhone,
             remoteJid: sourceRemoteJid ?? conv.remote_jid ?? contact.remote_jid ?? null,
           }).catch((err) =>
