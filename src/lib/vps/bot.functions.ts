@@ -6,6 +6,8 @@ const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
 const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
 
+const BLOCKED_RECIPIENTS = new Set(["27771812204615"]);
+
 function pickVpsRecipient(conversation: any, contact: any): string {
   const raw =
     (conversation && typeof conversation.remote_jid === "string" && conversation.remote_jid) ||
@@ -13,7 +15,8 @@ function pickVpsRecipient(conversation: any, contact: any): string {
     TEST_VPS_RECIPIENT;
   let digits = String(raw).split("@")[0].replace(/\D/g, "");
   if (digits.startsWith("0")) digits = "94" + digits.slice(1);
-  return digits || TEST_VPS_RECIPIENT;
+  if (!digits || BLOCKED_RECIPIENTS.has(digits)) return TEST_VPS_RECIPIENT;
+  return digits;
 }
 
 async function getSession(supabase: any, userId: string) {
