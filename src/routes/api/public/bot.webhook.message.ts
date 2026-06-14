@@ -3,7 +3,7 @@ import { z } from "zod";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
-  secret: z.string().min(8),
+  secret: z.string().min(8).optional(),
   from: z.string().min(1),
   remote_jid: z.string().optional(),
   contact_name: z.string().optional(),
@@ -83,6 +83,32 @@ function scheduleBackground(request: Request, work: Promise<unknown>) {
   try {
     (request as any).waitUntil?.(work);
   } catch {}
+}
+
+function queueLog(
+  request: Request,
+  supabaseAdmin: any,
+  workspaceId: string,
+  message: string,
+  metadata: Record<string, unknown> = {},
+  level: "info" | "warn" | "error" = "info",
+) {
+  console.log(`[webhook] ${message}`, metadata);
+  scheduleBackground(
+    request,
+    supabaseAdmin
+      .from("bot_logs")
+      .insert({
+        workspace_id: workspaceId,
+        bot_name: "whatsapp-vps",
+        channel: "whatsapp",
+        level,
+        message,
+        metadata,
+      })
+      .then(() => undefined)
+      .catch((e: any) => console.error("[webhook] queued log insert failed", e)),
+  );
 }
 
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
