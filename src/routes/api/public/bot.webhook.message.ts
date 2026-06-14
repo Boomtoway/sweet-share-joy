@@ -781,10 +781,11 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
+        console.log("SEND_FAILED", { status: res.status, error: String(err).slice(0, 400) });
         await logStep(
           supabaseAdmin,
           workspaceId,
-          "SEND_ERROR",
+          "SEND_FAILED",
           {
             status: res.status,
             http_ok: res.ok,
