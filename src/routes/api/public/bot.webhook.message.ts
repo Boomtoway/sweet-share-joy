@@ -380,14 +380,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             .update({
               last_message_at: new Date().toISOString(),
               unread_count: (conv.unread_count ?? 0) + 1,
-              ...(sourceRemoteJid ? { remote_jid: sourceRemoteJid } : {}),
+              remote_jid,
             })
             .eq("id", conv.id);
-          if (sourceRemoteJid) conv.remote_jid = sourceRemoteJid;
+          conv.remote_jid = remote_jid;
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", {
             conv_id: conv.id,
-            conversation_remote_jid: sourceRemoteJid ?? conv.remote_jid ?? null,
+            conversation_remote_jid: remote_jid,
             contact_remote_jid: contact.remote_jid ?? null,
             phone_saved: contact.phone,
           });
@@ -402,7 +402,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             workspaceId,
             inboundBody: inboundText,
             fromPhone: sourcePhone,
-            remoteJid: sourceRemoteJid ?? conv.remote_jid ?? contact.remote_jid ?? null,
+            remoteJid: remote_jid,
           }).catch((err) =>
             logStep(
               supabaseAdmin,
