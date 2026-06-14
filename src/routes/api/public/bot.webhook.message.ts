@@ -697,9 +697,16 @@ async function generateAndSend(args: {
       await markFailed(err);
       return;
     }
-    const targetJid = validWhatsappJid(conversation.remote_jid) || validWhatsappJid(contact.remote_jid);
+    let to: string | null =
+      conversation.remote_jid || contact.remote_jid || contact.phone || null;
+    if (to && !to.includes("@s.whatsapp.net")) {
+      let d = String(to).replace(/\D/g, "");
+      if (d.startsWith("0")) d = "94" + d.slice(1);
+      to = `${d}@s.whatsapp.net`;
+    }
+    const targetJid = validWhatsappJid(to);
     if (!targetJid) {
-      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, remote_jid=${remoteJid})`;
+      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, contact.phone=${contact.phone}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
       await markFailed(err);
       return;
