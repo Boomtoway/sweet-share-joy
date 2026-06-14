@@ -263,7 +263,9 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             workspaceId,
             inboundBody: body.body,
             fromPhone: body.from,
+            remoteJid: body.remote_jid ?? contact.remote_jid ?? null,
           });
+
 
           return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
         } catch (e: any) {
