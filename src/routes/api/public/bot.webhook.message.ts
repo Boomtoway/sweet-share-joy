@@ -171,16 +171,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const rawFrom = body.from ?? "";
+          const rawFrom = String(body.from || body.remote_jid || body.jid || "");
           const inboundText = body.body ?? body.message ?? "";
-          const sourceRemoteJid = body.remote_jid || body.remoteJid || body.jid || body.from;
-          const remote_jid = sourceRemoteJid?.includes("@s.whatsapp.net")
-            ? sourceRemoteJid
-            : sourceRemoteJid
-              ? `${String(sourceRemoteJid).replace(/\D/g, "").replace(/^0/, "94")}@s.whatsapp.net`
-              : null;
-          const sourcePhone = remote_jid ? remote_jid.replace("@s.whatsapp.net", "") : normalizeLkPhone(body.phone);
-          if (!remote_jid || !validWhatsappJid(remote_jid)) {
+          const digits = rawFrom.replace(/\D/g, "");
+          const remote_jid = rawFrom.includes("@s.whatsapp.net")
+            ? rawFrom
+            : `${digits.startsWith("0") ? "94" + digits.slice(1) : digits}@s.whatsapp.net`;
+          const sourcePhone = remote_jid.replace("@s.whatsapp.net", "");
+          if (!validWhatsappJid(remote_jid)) {
             return new Response(JSON.stringify({ error: "No valid WhatsApp JID in payload" }), {
               status: 400,
               headers: cors,
@@ -188,7 +186,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           }
           console.log("WEBHOOK BODY FROM:", body.from);
           console.log("REMOTE_JID SAVING:", remote_jid);
-          console.log("REMOTE JID FOUND:", sourceRemoteJid);
+          console.log("REMOTE JID FOUND:", remote_jid);
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
