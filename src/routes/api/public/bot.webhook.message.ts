@@ -716,20 +716,10 @@ async function generateAndSend(args: {
     const url = DIRECT_VPS_SEND_URL;
     const payload = { to, message: replyText };
     console.log("SENDING_TO_VPS_URL", url);
-    console.log("AI REPLY:", replyText);
-    if (outboundMsg?.id) {
-      await supabaseAdmin
-        .from("messages")
-        .update({ target_jid: to })
-        .eq("id", outboundMsg.id);
-    }
-    const url = DIRECT_VPS_SEND_URL;
-    const payload = { to, message: replyText };
-    console.log("SENDING_TO_VPS_URL", url);
     console.log("SEND_BODY", payload);
     await logStep(supabaseAdmin, workspaceId, "vps_send_started", {
       url,
-      authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
+      authorization: `Bearer ${DIRECT_VPS_TOKEN.slice(0, 6)}…`,
       to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact.remote_jid,
