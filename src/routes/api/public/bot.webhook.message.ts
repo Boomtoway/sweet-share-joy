@@ -4,12 +4,16 @@ import { z } from "zod";
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
   secret: z.string().min(8).optional(),
-  from: z.string().min(1),
+  from: z.string().min(1).optional(),
   remote_jid: z.string().optional(),
+  remoteJid: z.string().optional(),
+  jid: z.string().optional(),
+  phone: z.string().optional(),
   contact_name: z.string().optional(),
-  body: z.string().default(""),
+  body: z.string().optional(),
+  message: z.string().optional(),
   external_id: z.string().optional(),
-});
+}).passthrough();
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +25,28 @@ const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 function validWhatsappJid(value: unknown): string | null {
   const jid = typeof value === "string" ? value.trim() : "";
   return whatsappJidPattern.test(jid) ? jid : null;
+}
+
+function extractWhatsappJid(value: unknown): string | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const direct = validWhatsappJid(raw.replace(/^mailto:/i, ""));
+  if (direct) return direct;
+  const match = raw.match(/(?:mailto:)?([^\s<[\]()]+@s\.whatsapp\.net)/i);
+  return match ? validWhatsappJid(match[1]) : null;
+}
+
+function normalizeLkPhone(value: unknown): string | null {
+  let phone = typeof value === "string" ? value.trim() : "";
+  phone = phone.replace(/^mailto:/i, "").split("@")[0].replace(/[^\d+]/g, "");
+  if (phone.startsWith("+")) phone = phone.slice(1);
+  if (phone.startsWith("00")) phone = phone.slice(2);
+  if (phone.startsWith("0")) phone = `94${phone.slice(1)}`;
+  return /^94\d{9}$/.test(phone) ? phone : null;
+}
+
+function normalizeLkPhoneToJid(value: unknown): string | null {
+  const phone = normalizeLkPhone(value);
+  return phone ? `${phone}@s.whatsapp.net` : null;
 }
 
 function jidUser(jid: string) {
@@ -144,15 +170,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           const body = WebhookSchema.parse(raw);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const sourceRemoteJid = validWhatsappJid(body.remote_jid) ?? validWhatsappJid(body.from);
-          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : body.from;
+          const rawFrom = body.from ?? body.phone ?? "";
+          const inboundText = body.body ?? body.message ?? "";
+          const sourceRemoteJid =
+            extractWhatsappJid(body.remote_jid) ??
+            extractWhatsappJid(body.remoteJid) ??
+            extractWhatsappJid(body.jid) ??
+            extractWhatsappJid(rawFrom) ??
+            normalizeLkPhoneToJid(rawFrom) ??
+            normalizeLkPhoneToJid(body.phone);
+          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(rawFrom);
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
             remote_jid: body.remote_jid,
+            remoteJid: body.remoteJid,
+            jid: body.jid,
             source_remote_jid: sourceRemoteJid,
-            phone_before_save: body.from,
-            preview: body.body.slice(0, 80),
+            phone_before_save: rawFrom,
+            preview: inboundText.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
           });
 
@@ -160,13 +196,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
           if (sourceRemoteJid) {
             const expected = jidUser(sourceRemoteJid);
-            if (expected !== body.from) {
+            const normalizedFrom = normalizeLkPhone(rawFrom);
+            if (normalizedFrom && normalizedFrom !== expected) {
               queueLog(
                 request,
                 supabaseAdmin,
                 workspaceId,
                 "phone_saved differs from remoteJid.split('@')[0]",
-                { remote_jid: sourceRemoteJid, from: body.from, expected },
+                { remote_jid: sourceRemoteJid, from: rawFrom, normalized_from: normalizedFrom, expected },
                 "error",
               );
             }
@@ -231,7 +268,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             ? await lookupQuery.eq("remote_jid", sourceRemoteJid).maybeSingle()
             : { data: null as any };
           let contact = contactByJid as any;
-          if (!contact) {
+          if (!contact && sourcePhone) {
             const { data: contactByPhone } = await supabaseAdmin
               .from("contacts")
               .select("*")
@@ -247,15 +284,15 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 workspace_id: workspaceId,
                 phone: sourcePhone,
                 remote_jid: sourceRemoteJid,
-                name: body.contact_name ?? sourcePhone,
+                name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
               })
               .select()
               .single();
             contact = ins.data;
-          } else if (sourceRemoteJid && contact.remote_jid !== sourceRemoteJid) {
-            // Backfill remote_jid on existing contact
+          } else if (sourceRemoteJid && (contact.remote_jid !== sourceRemoteJid || contact.phone !== sourcePhone)) {
+            // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
               .update({ remote_jid: sourceRemoteJid, phone: sourcePhone })
@@ -274,7 +311,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             contact_id: contact.id,
             remote_jid: contact.remote_jid,
             phone_saved: contact.phone,
-            phone_before_save: body.from,
+            phone_before_save: rawFrom,
           });
 
 
@@ -325,17 +362,23 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conversation_id: conv.id,
             direction: "inbound",
             sender: "contact",
-            body: body.body,
+            body: inboundText,
           });
           await supabaseAdmin
             .from("conversations")
             .update({
               last_message_at: new Date().toISOString(),
               unread_count: (conv.unread_count ?? 0) + 1,
+              ...(sourceRemoteJid ? { remote_jid: sourceRemoteJid } : {}),
             })
             .eq("id", conv.id);
 
-          queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", { conv_id: conv.id });
+          queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", {
+            conv_id: conv.id,
+            conversation_remote_jid: sourceRemoteJid ?? conv.remote_jid ?? null,
+            contact_remote_jid: contact.remote_jid ?? null,
+            phone_saved: contact.phone,
+          });
 
           // ---- Everything after inbound persistence runs in the background.
           // The webhook must ACK within 1s and never wait for Gemini/delay/VPS. ----
@@ -345,7 +388,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conversation: conv,
             contact,
             workspaceId,
-            inboundBody: body.body,
+            inboundBody: inboundText,
             fromPhone: sourcePhone,
             remoteJid: sourceRemoteJid ?? conv.remote_jid ?? contact.remote_jid ?? null,
           }).catch((err) =>
@@ -389,7 +432,7 @@ async function generateAndSend(args: {
   contact: any;
   workspaceId: string;
   inboundBody: string;
-  fromPhone: string;
+  fromPhone: string | null;
   remoteJid: string | null;
 }) {
   const { supabaseAdmin, session, conversation, contact, workspaceId, inboundBody, fromPhone, remoteJid } =
@@ -637,16 +680,18 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send — use only the WhatsApp JID stored on the conversation/current webhook.
+    // Send via VPS /send — use only the WhatsApp JID persisted for this conversation/contact.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    const targetJid = validWhatsappJid(conversation.remote_jid) ?? validWhatsappJid(remoteJid);
+    const targetJid =
+      validWhatsappJid(conversation.remote_jid) ??
+      validWhatsappJid(contact.remote_jid);
     if (!targetJid) {
-      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, remote_jid=${remoteJid})`;
+      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
       await markFailed(err);
       return;
@@ -666,6 +711,7 @@ async function generateAndSend(args: {
       authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to: targetJid,
       conversation_remote_jid: conversation.remote_jid,
+      contact_remote_jid: contact.remote_jid,
       remote_jid: remoteJid,
       phone_before_save: fromPhone,
       message_length: replyText.length,
