@@ -21,6 +21,8 @@ const cors = {
 };
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const DIRECT_VPS_API_TOKEN = "startapplk-bot-12345";
+const TEST_VPS_RECIPIENT = "94740123466";
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 
@@ -49,16 +51,6 @@ function normalizeLkPhone(value: unknown): string | null {
 function normalizeLkPhoneToJid(value: unknown): string | null {
   const phone = normalizeLkPhone(value);
   return phone ? `${phone}@s.whatsapp.net` : null;
-}
-
-function normalizeWhatsAppRecipient(value: unknown): string | null {
-  let raw = String(value ?? "").trim();
-  if (!raw) return null;
-  raw = raw.replace(/^mailto:/i, "").replace(/@s\.whatsapp\.net$/i, "");
-  let digits = raw.replace(/\D/g, "");
-  if (!digits) return null;
-  if (digits.startsWith("0")) digits = `94${digits.slice(1)}`;
-  return digits;
 }
 
 function jidUser(jid: string) {
