@@ -131,6 +131,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     console.log("SENDING_TO_VPS_URL", DIRECT_VPS_SEND_URL);
     console.log("SEND_BODY", sendBody);
 
+    let vpsSucceeded = false;
     try {
       const res = await fetch(DIRECT_VPS_SEND_URL, {
         method: "POST",
@@ -152,6 +153,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         await markFailed(`VPS ${res.status}: ${err}`);
         throw new Error(`VPS ${res.status}: ${err}`);
       }
+      vpsSucceeded = true;
 
       const { data: sent, error: updateError } = await context.supabase
         .from("messages")
@@ -172,7 +174,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
 
       return { message: sent, response: responseBody };
     } catch (e: any) {
-      await markFailed(e?.message ?? "VPS send failed");
+      if (!vpsSucceeded) await markFailed(e?.message ?? "VPS send failed");
       throw e;
     }
   });
