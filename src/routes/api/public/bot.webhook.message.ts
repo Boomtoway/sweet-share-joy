@@ -692,14 +692,14 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send — use only the WhatsApp JID persisted for this conversation.
+    // Send via VPS /send — use only persisted WhatsApp JIDs, never database ids or phone numbers.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    const targetJid = validWhatsappJid(conversation.remote_jid);
+    const targetJid = validWhatsappJid(conversation.remote_jid) || validWhatsappJid(contact.remote_jid);
     if (!targetJid) {
       const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, contact.remote_jid=${contact.remote_jid}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
