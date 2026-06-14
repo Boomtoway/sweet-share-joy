@@ -734,7 +734,7 @@ async function generateAndSend(args: {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.vps_api_token}`,
+          Authorization: `Bearer ${DIRECT_VPS_TOKEN}`,
         },
         body: JSON.stringify(payload),
       });
