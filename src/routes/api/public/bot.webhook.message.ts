@@ -73,22 +73,15 @@ async function timed<T>(
   }
 }
 
-function scheduleBackground(work: Promise<unknown>) {
-  // Try every known mechanism so the task isn't killed when we return.
+function scheduleBackground(request: Request, work: Promise<unknown>) {
+  work.catch(() => {});
   try {
     const g: any = globalThis as any;
     if (g.EdgeRuntime?.waitUntil) return g.EdgeRuntime.waitUntil(work);
   } catch {}
   try {
-    // h3 / nitro event (TanStack Start runtime)
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const h3 = require("h3");
-    const ev = h3.getEvent?.();
-    const ctx = ev?.context?.cloudflare?.context;
-    if (ctx?.waitUntil) return ctx.waitUntil(work);
+    (request as any).waitUntil?.(work);
   } catch {}
-  // Fallback: detached promise (may be killed on some runtimes)
-  work.catch(() => {});
 }
 
 export const Route = createFileRoute("/api/public/bot/webhook/message")({
