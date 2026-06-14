@@ -34,6 +34,7 @@ interface Conv {
     id: string;
     name: string | null;
     phone: string | null;
+    remote_jid: string | null;
     email: string | null;
     ai_enabled: boolean;
     human_takeover: boolean;
@@ -49,6 +50,7 @@ interface Msg {
   created_at: string;
   delivery_status?: "pending" | "sent" | "delivered" | "failed" | null;
   delivery_error?: string | null;
+  target_jid?: string | null;
 }
 
 type LeadStage = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
@@ -89,7 +91,7 @@ function ConversationsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("conversations")
-      .select("*, contact:contacts(id,name,phone,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
+      .select("*, contact:contacts(id,name,phone,remote_jid,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
       .eq("workspace_id", wsId)
       .order("last_message_at", { ascending: false, nullsFirst: false });
     setLoading(false);
@@ -283,6 +285,9 @@ function ConversationsPage() {
                         {m.delivery_status === "failed" && m.delivery_error && (
                           <div className="text-[10px] mt-1 text-destructive">{m.delivery_error}</div>
                         )}
+                        {m.direction === "outbound" && m.target_jid && (
+                          <div className="text-[10px] mt-1 opacity-70">→ {m.target_jid}</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -311,6 +316,7 @@ function ConversationsPage() {
                 <div className="space-y-1">
                   <div><span className="text-muted-foreground">Name: </span>{active.contact?.name ?? "—"}</div>
                   <div><span className="text-muted-foreground">Phone: </span>{active.contact?.phone ?? "—"}</div>
+                  <div className="text-xs"><span className="text-muted-foreground">Remote JID: </span><code>{active.contact?.remote_jid ?? "—"}</code></div>
                   <div><span className="text-muted-foreground">Email: </span>{active.contact?.email ?? "—"}</div>
                   <div><span className="text-muted-foreground">Channel: </span>{active.channel?.type ?? "—"}</div>
                 </div>

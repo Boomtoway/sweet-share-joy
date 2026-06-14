@@ -5,6 +5,7 @@ const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
   secret: z.string().min(8),
   from: z.string().min(1),
+  remote_jid: z.string().optional(),
   contact_name: z.string().optional(),
   body: z.string().default(""),
   external_id: z.string().optional(),
@@ -59,8 +60,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
           await logStep(supabaseAdmin, workspaceId, "Message received", {
             from: body.from,
+            remote_jid: body.remote_jid,
+            phone_before_save: body.from,
             preview: body.body.slice(0, 80),
           });
+
+          // Sanity check: if a full JID was sent, its user part MUST match `from`.
+          if (body.remote_jid) {
+            const expected = body.remote_jid.split("@")[0];
+            if (expected !== body.from) {
+              await logStep(
+                supabaseAdmin,
+                workspaceId,
+                "phone_saved differs from remoteJid.split('@')[0]",
+                { remote_jid: body.remote_jid, from: body.from, expected },
+                "error",
+              );
+            }
+          }
+
 
           const { data: session } = await supabaseAdmin
             .from("whatsapp_sessions")
@@ -84,19 +102,31 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             session.messages_today = 0;
           }
 
-          // Find/create contact
-          let { data: contact } = await supabaseAdmin
+          // Find/create contact (match by remote_jid when available, else by phone)
+          const lookupQuery = supabaseAdmin
             .from("contacts")
             .select("*")
-            .eq("workspace_id", workspaceId)
-            .eq("phone", body.from)
-            .maybeSingle();
+            .eq("workspace_id", workspaceId);
+          const { data: contactByJid } = body.remote_jid
+            ? await lookupQuery.eq("remote_jid", body.remote_jid).maybeSingle()
+            : { data: null as any };
+          let contact = contactByJid as any;
+          if (!contact) {
+            const { data: contactByPhone } = await supabaseAdmin
+              .from("contacts")
+              .select("*")
+              .eq("workspace_id", workspaceId)
+              .eq("phone", body.from)
+              .maybeSingle();
+            contact = contactByPhone;
+          }
           if (!contact) {
             const ins = await supabaseAdmin
               .from("contacts")
               .insert({
                 workspace_id: workspaceId,
                 phone: body.from,
+                remote_jid: body.remote_jid ?? null,
                 name: body.contact_name ?? body.from,
                 channel: "whatsapp",
                 external_id: body.external_id,
@@ -104,6 +134,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .select()
               .single();
             contact = ins.data;
+          } else if (body.remote_jid && contact.remote_jid !== body.remote_jid) {
+            // Backfill remote_jid on existing contact
+            await supabaseAdmin
+              .from("contacts")
+              .update({ remote_jid: body.remote_jid })
+              .eq("id", contact.id);
+            contact.remote_jid = body.remote_jid;
           }
           if (!contact) {
             return new Response(JSON.stringify({ error: "contact failed" }), {
@@ -111,6 +148,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               headers: cors,
             });
           }
+
+          await logStep(supabaseAdmin, workspaceId, "Contact resolved", {
+            contact_id: contact.id,
+            remote_jid: contact.remote_jid,
+            phone_saved: contact.phone,
+            phone_before_save: body.from,
+          });
+
 
           // Find/create conversation
           let { data: conv } = await supabaseAdmin
@@ -218,7 +263,9 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             workspaceId,
             inboundBody: body.body,
             fromPhone: body.from,
+            remoteJid: body.remote_jid ?? contact.remote_jid ?? null,
           });
+
 
           return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
         } catch (e: any) {
@@ -247,8 +294,10 @@ async function generateAndSend(args: {
   workspaceId: string;
   inboundBody: string;
   fromPhone: string;
+  remoteJid: string | null;
 }) {
-  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone } = args;
+  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone, remoteJid } = args;
+
 
   try {
     // ---- Reply rules (keyword match) ----
@@ -433,18 +482,27 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send
+    // Send via VPS /send — use the raw remoteJid if we have one, otherwise the phone digits.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
+    const targetJid = remoteJid && remoteJid.includes("@") ? remoteJid : fromPhone;
+    if (outboundMsg?.id) {
+      await supabaseAdmin
+        .from("messages")
+        .update({ target_jid: targetJid })
+        .eq("id", outboundMsg.id);
+    }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
-    const payload = { to: fromPhone, message: replyText };
+    const payload = { to: targetJid, message: replyText };
     await logStep(supabaseAdmin, workspaceId, "VPS /send request", {
       url,
-      to: fromPhone,
+      to: targetJid,
+      remote_jid: remoteJid,
+      phone_before_save: fromPhone,
       message_length: replyText.length,
       message_id: outboundMsg?.id,
     });
@@ -466,7 +524,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         `VPS /send response ${res.status}`,
-        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url },
+        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url, to: targetJid },
         res.ok ? "info" : "error",
       );
       if (!res.ok) {
@@ -484,7 +542,7 @@ async function generateAndSend(args: {
           })
           .eq("id", outboundMsg.id);
         await logStep(supabaseAdmin, workspaceId, "Reply sent", {
-          to: fromPhone,
+          to: targetJid,
           provider_message_id: parsed?.id ?? null,
           message_id: outboundMsg.id,
         });
