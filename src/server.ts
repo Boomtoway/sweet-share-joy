@@ -40,6 +40,12 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const waitUntil = (ctx as { waitUntil?: (promise: Promise<unknown>) => void } | undefined)
+        ?.waitUntil;
+      if (waitUntil) {
+        (request as Request & { waitUntil?: (promise: Promise<unknown>) => void }).waitUntil =
+          waitUntil.bind(ctx);
+      }
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
