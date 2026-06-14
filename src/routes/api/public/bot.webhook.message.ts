@@ -624,41 +624,22 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Send via VPS /send — use the raw remoteJid if we have one, otherwise the phone digits.
+    // Send via VPS /send — use only the WhatsApp JID stored on the conversation/current webhook.
     if (!session.vps_endpoint || !session.vps_api_token) {
       const err = "VPS endpoint/token not configured";
       await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
       await markFailed(err);
       return;
     }
-    // Build a Sri Lanka-normalized WhatsApp JID. NEVER use contact.id as recipient.
-    // Accepts: "94740123466@s.whatsapp.net" | "+94740123466" | "94740123466" | "0740123466" | "740123466"
-    const defaultCc = (session.default_country_code as string | undefined)?.replace(/\D/g, "") || "94";
-    const normalizeLk = (raw: string | null | undefined): string | null => {
-      if (!raw) return null;
-      const s = raw.toString().trim();
-      // Strip JID suffix if present, keep digits only
-      const userPart = s.includes("@") ? s.split("@")[0] : s;
-      let d = userPart.replace(/\D/g, "");
-      if (!d) return null;
-      if (d.startsWith("00")) d = d.slice(2);
-      if (d.startsWith("0")) d = defaultCc + d.slice(1);
-      else if (d.length === 9) d = defaultCc + d; // bare 9-digit subscriber number
-      else if (!d.startsWith(defaultCc) && d.length === 10) d = defaultCc + d;
-      // Final shape for LK: 94 + 9 digits = 11 digits
-      if (defaultCc === "94" && d.length !== 11) return null;
-      return d;
-    };
-
-    const normalized =
-      normalizeLk(remoteJid) ?? normalizeLk(fromPhone) ?? normalizeLk(contact?.phone);
-    if (!normalized) {
-      const err = `Could not normalize recipient (remote_jid=${remoteJid}, from=${fromPhone}, contact.phone=${contact?.phone})`;
+    const targetJid = validWhatsappJid(conversation.remote_jid) ?? validWhatsappJid(remoteJid);
+    if (!targetJid) {
+      const err = `Blocked send: invalid WhatsApp recipient (conversation.remote_jid=${conversation.remote_jid}, remote_jid=${remoteJid})`;
       await logStep(supabaseAdmin, workspaceId, err, {}, "error");
       await markFailed(err);
       return;
     }
-    const targetJid = `${normalized}@s.whatsapp.net`;
+    console.log("SEND TO:", targetJid);
+    console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
         .from("messages")
@@ -671,6 +652,7 @@ async function generateAndSend(args: {
       url,
       authorization: `Bearer ${String(session.vps_api_token).slice(0, 6)}…`,
       to: targetJid,
+      conversation_remote_jid: conversation.remote_jid,
       remote_jid: remoteJid,
       phone_before_save: fromPhone,
       message_length: replyText.length,
