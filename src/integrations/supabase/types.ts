@@ -365,6 +365,7 @@ export type Database = {
           created_at: string
           id: string
           last_message_at: string | null
+          remote_jid: string | null
           status: Database["public"]["Enums"]["conversation_status"]
           unread_count: number
           updated_at: string
@@ -377,6 +378,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_message_at?: string | null
+          remote_jid?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           unread_count?: number
           updated_at?: string
@@ -389,6 +391,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_message_at?: string | null
+          remote_jid?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           unread_count?: number
           updated_at?: string

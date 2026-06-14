@@ -1,0 +1,2 @@
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS remote_jid text;
+CREATE INDEX IF NOT EXISTS conversations_workspace_remote_jid_idx ON public.conversations (workspace_id, remote_jid) WHERE remote_jid IS NOT NULL;
