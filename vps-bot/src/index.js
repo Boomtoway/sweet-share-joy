@@ -86,8 +86,27 @@ async function startSock() {
     for (const m of messages) {
       try {
         if (!m.message || m.key.fromMe) continue;
-        const remoteJid = m.key.remoteJid;
-        if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') continue;
+        const rawJid = m.key.remoteJid;
+        if (!rawJid || rawJid.endsWith('@g.us') || rawJid === 'status@broadcast') continue;
+
+        // Resolve the real WhatsApp phone JID. For LID messages, Baileys
+        // exposes the phone-number variant via key.senderPn / key.remoteJidAlt.
+        const altCandidates = [
+          m.key.senderPn,
+          m.key.remoteJidAlt,
+          m.key.participantPn,
+          rawJid,
+        ].filter(Boolean);
+        const phoneJid =
+          altCandidates.find((j) => typeof j === 'string' && j.endsWith('@s.whatsapp.net')) ?? null;
+
+        if (!phoneJid) {
+          log.warn({ rawJid, altCandidates }, 'skip: no phone JID resolvable (LID only)');
+          continue;
+        }
+
+        const remoteJid = phoneJid;           // canonical @s.whatsapp.net JID
+        const from = remoteJid.split('@')[0]; // real phone number, e.g. 94740123466
 
         const body =
           m.message.conversation ??
@@ -95,8 +114,6 @@ async function startSock() {
           m.message.imageMessage?.caption ??
           m.message.videoMessage?.caption ??
           '';
-
-        const from = remoteJid.split('@')[0]; // user part, exactly as received
         const name = m.pushName ?? from;
 
         const res = await fetch(LOVABLE_WEBHOOK_URL, {
@@ -105,13 +122,14 @@ async function startSock() {
           body: JSON.stringify({
             workspace_id: WORKSPACE_ID,
             secret: WEBHOOK_SECRET,
-            from,                  // raw user part (no modification)
-            remote_jid: remoteJid, // full JID — use this to send replies
+            from,
+            remote_jid: remoteJid,
             contact_name: name,
             body,
             external_id: m.key.id,
           }),
         });
+
 
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
