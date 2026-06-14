@@ -34,6 +34,7 @@ interface Conv {
     id: string;
     name: string | null;
     phone: string | null;
+    remote_jid: string | null;
     email: string | null;
     ai_enabled: boolean;
     human_takeover: boolean;
@@ -49,6 +50,7 @@ interface Msg {
   created_at: string;
   delivery_status?: "pending" | "sent" | "delivered" | "failed" | null;
   delivery_error?: string | null;
+  target_jid?: string | null;
 }
 
 type LeadStage = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
