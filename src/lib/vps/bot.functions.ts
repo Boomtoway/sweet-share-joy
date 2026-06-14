@@ -3,7 +3,18 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
+const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
+
+function pickVpsRecipient(conversation: any, contact: any): string {
+  const raw =
+    (conversation && typeof conversation.remote_jid === "string" && conversation.remote_jid) ||
+    (contact && typeof contact.phone === "string" && contact.phone) ||
+    TEST_VPS_RECIPIENT;
+  let digits = String(raw).split("@")[0].replace(/\D/g, "");
+  if (digits.startsWith("0")) digits = "94" + digits.slice(1);
+  return digits || TEST_VPS_RECIPIENT;
+}
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
