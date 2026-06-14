@@ -279,12 +279,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
 
           // Find/create conversation. Store the exact WhatsApp JID on the conversation.
-          let { data: conv } = await supabaseAdmin
-            .from("conversations")
-            .select("*")
-            .eq("workspace_id", workspaceId)
-            .eq(sourceRemoteJid ? "remote_jid" : "contact_id", sourceRemoteJid ?? contact.id)
-            .maybeSingle();
+          let conv: any = null;
+          if (sourceRemoteJid) {
+            const byJid = await supabaseAdmin
+              .from("conversations")
+              .select("*")
+              .eq("workspace_id", workspaceId)
+              .eq("remote_jid", sourceRemoteJid)
+              .maybeSingle();
+            conv = byJid.data;
+          }
+          if (!conv) {
+            const byContact = await supabaseAdmin
+              .from("conversations")
+              .select("*")
+              .eq("workspace_id", workspaceId)
+              .eq("contact_id", contact.id)
+              .maybeSingle();
+            conv = byContact.data;
+          }
           if (!conv) {
             const ins = await supabaseAdmin
               .from("conversations")
