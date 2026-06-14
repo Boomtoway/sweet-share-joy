@@ -128,7 +128,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           }
 
 
-          const { data: session } = await timed(
+          const sessionRes: any = await timed(
             supabaseAdmin,
             workspaceId,
             "select whatsapp_sessions",
@@ -139,6 +139,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 .eq("workspace_id", workspaceId)
                 .single(),
           );
+          const session = sessionRes?.data;
           if (!session || session.webhook_secret !== body.secret) {
             return new Response(JSON.stringify({ error: "Invalid secret" }), {
               status: 401,
