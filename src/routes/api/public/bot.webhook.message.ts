@@ -254,8 +254,9 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             );
           }
 
-          // ---- Generate AI reply + send via VPS (synchronous so it actually runs) ----
-          await generateAndSend({
+          // ---- Generate AI reply + send via VPS (fire-and-forget so the
+          // webhook returns in <1s; VPS times out at 5s otherwise) ----
+          const work = generateAndSend({
             supabaseAdmin,
             session,
             conversation: conv,
@@ -264,7 +265,19 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             inboundBody: body.body,
             fromPhone: body.from,
             remoteJid: body.remote_jid ?? contact.remote_jid ?? null,
-          });
+          }).catch((err) =>
+            logStep(
+              supabaseAdmin,
+              workspaceId,
+              `generateAndSend crashed: ${err?.message}`,
+              { stack: err?.stack?.slice(0, 500) },
+              "error",
+            ),
+          );
+          // Best-effort: keep the worker alive after response in CF Workers.
+          try {
+            (request as any).waitUntil?.(work);
+          } catch {}
 
 
           return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
