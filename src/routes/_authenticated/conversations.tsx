@@ -47,6 +47,8 @@ interface Msg {
   sender: string;
   body: string | null;
   created_at: string;
+  delivery_status?: "pending" | "sent" | "delivered" | "failed" | null;
+  delivery_error?: string | null;
 }
 
 type LeadStage = "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
@@ -258,8 +260,29 @@ function ConversationsPage() {
                         m.direction === "outbound"
                           ? m.sender === "ai" ? "bg-primary/20 text-foreground" : "bg-primary text-primary-foreground"
                           : "bg-muted"}`}>
-                        <div className="text-[10px] opacity-70 mb-0.5">{m.sender}</div>
+                        <div className="text-[10px] opacity-70 mb-0.5 flex items-center gap-1">
+                          <span>{m.sender}</span>
+                          {m.direction === "outbound" && m.delivery_status && (
+                            <Badge
+                              variant={
+                                m.delivery_status === "failed"
+                                  ? "destructive"
+                                  : m.delivery_status === "delivered"
+                                  ? "default"
+                                  : m.delivery_status === "sent"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="text-[9px] px-1 py-0 h-auto"
+                            >
+                              {m.delivery_status}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="whitespace-pre-wrap">{m.body}</div>
+                        {m.delivery_status === "failed" && m.delivery_error && (
+                          <div className="text-[10px] mt-1 text-destructive">{m.delivery_error}</div>
+                        )}
                       </div>
                     </div>
                   ))}
