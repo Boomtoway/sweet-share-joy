@@ -3,7 +3,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
-const DIRECT_VPS_API_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
 
 async function getSession(supabase: any, userId: string) {
@@ -94,7 +93,8 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ManualSendSchema.parse(i))
   .handler(async ({ context, data }) => {
-    const { workspaceId } = await getSession(context.supabase, context.userId);
+    const { workspaceId, session } = await getSession(context.supabase, context.userId);
+    if (!session?.vps_api_token) throw new Error("VPS API token not configured");
 
     const messageText = data.message.trim();
     const { data: conversation, error: conversationError } = await context.supabase
@@ -137,7 +137,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${DIRECT_VPS_API_TOKEN}`,
+          Authorization: `Bearer ${session.vps_api_token}`,
         },
         body: JSON.stringify(sendBody),
       });
