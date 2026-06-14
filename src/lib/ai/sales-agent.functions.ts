@@ -169,11 +169,12 @@ const SettingsSchema = z.object({
 export const getAiSettings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: profile } = await context.supabase
+    const { data: profile, error: profileError } = await context.supabase
       .from("profiles")
       .select("workspace_id")
       .eq("id", context.userId)
       .single();
+    if (profileError) throw profileError;
     if (!profile?.workspace_id) throw new Error("Workspace not found");
     const { data, error } = await context.supabase
       .from("ai_settings")
@@ -181,7 +182,16 @@ export const getAiSettings = createServerFn({ method: "GET" })
       .eq("workspace_id", profile.workspace_id)
       .single();
     if (error) throw error;
-    return data;
+    return {
+      ...data,
+      __debug: {
+        workspace_id: profile.workspace_id,
+        row_id: data.id,
+        enabled: data.enabled,
+        auto_reply: data.auto_reply,
+        loaded_at: new Date().toISOString(),
+      },
+    };
   });
 
 export const updateAiSettings = createServerFn({ method: "POST" })

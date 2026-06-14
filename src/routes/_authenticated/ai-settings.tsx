@@ -1,6 +1,6 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   generateSalesReply,
@@ -37,13 +37,17 @@ const FIELDS: Array<{ key: string; label: string; placeholder?: string; rows?: n
 
 function AiSettingsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const fetchSettings = useServerFn(getAiSettings);
   const saveSettings = useServerFn(updateAiSettings);
   const reply = useServerFn(generateSalesReply);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["ai-settings"],
     queryFn: () => fetchSettings(),
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const [form, setForm] = useState<Record<string, any>>({});
@@ -53,7 +57,16 @@ function AiSettingsPage() {
   const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    if (data) setForm(data);
+    if (data) {
+      console.info("[AI Settings] Loaded row", {
+        workspace_id: data.__debug?.workspace_id ?? data.workspace_id,
+        row_id: data.id,
+        enabled: data.enabled,
+        auto_reply: data.auto_reply,
+        row: data,
+      });
+      setForm(data);
+    }
   }, [data]);
 
   const update = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
@@ -61,7 +74,7 @@ function AiSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await saveSettings({
+      const updated = await saveSettings({
         data: {
           personality: form.personality,
           business_tone: form.business_tone,
@@ -79,6 +92,16 @@ function AiSettingsPage() {
           auto_reply: form.auto_reply,
         },
       });
+      console.info("[AI Settings] Saved row", {
+        workspace_id: updated.workspace_id,
+        row_id: updated.id,
+        enabled: updated.enabled,
+        auto_reply: updated.auto_reply,
+        row: updated,
+      });
+      setForm((current) => ({ ...current, ...updated }));
+      queryClient.setQueryData(["ai-settings"], updated);
+      await queryClient.invalidateQueries({ queryKey: ["ai-settings"] });
       toast.success("AI settings saved");
       router.invalidate();
     } catch (e: any) {
@@ -109,6 +132,9 @@ function AiSettingsPage() {
     );
   }
 
+  const debugRow = data ?? form;
+  const debugWorkspaceId = debugRow.__debug?.workspace_id ?? debugRow.workspace_id;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <div className="flex items-center gap-3">
@@ -126,7 +152,7 @@ function AiSettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Engine</CardTitle>
-          <CardDescription>Core model & behavior</CardDescription>
+          <CardDescription>Core model & behavior{isFetching ? " · refreshing" : ""}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -167,6 +193,38 @@ function AiSettingsPage() {
             </div>
             <Switch checked={!!form.auto_reply} onCheckedChange={(v) => update("auto_reply", v)} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Debug: loaded AI settings row</CardTitle>
+          <CardDescription>
+            SQL equivalent: select * from ai_settings where workspace_id='{debugWorkspaceId}';
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">workspace_id</div>
+              <div className="break-all font-mono">{debugWorkspaceId}</div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">ai_settings row id</div>
+              <div className="break-all font-mono">{debugRow.id}</div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">enabled</div>
+              <div className="font-mono">{String(debugRow.enabled)}</div>
+            </div>
+            <div className="rounded-md border p-3">
+              <div className="text-xs text-muted-foreground">auto_reply</div>
+              <div className="font-mono">{String(debugRow.auto_reply)}</div>
+            </div>
+          </div>
+          <pre className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-3 text-xs">
+            {JSON.stringify(debugRow, null, 2)}
+          </pre>
         </CardContent>
       </Card>
 
