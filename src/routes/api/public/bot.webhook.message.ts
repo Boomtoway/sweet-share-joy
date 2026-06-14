@@ -273,8 +273,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             .from("contacts")
             .select("*")
             .eq("workspace_id", workspaceId);
-          const { data: contactByJid } = sourceRemoteJid
-            ? await lookupQuery.eq("remote_jid", sourceRemoteJid).maybeSingle()
+          const { data: contactByJid } = remote_jid
+            ? await lookupQuery.eq("remote_jid", remote_jid).maybeSingle()
             : { data: null as any };
           let contact = contactByJid as any;
           if (!contact && sourcePhone) {
@@ -292,7 +292,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .insert({
                 workspace_id: workspaceId,
                 phone: sourcePhone,
-                remote_jid: sourceRemoteJid,
+                remote_jid,
                 name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
@@ -300,13 +300,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .select()
               .single();
             contact = ins.data;
-          } else if (sourceRemoteJid && (contact.remote_jid !== sourceRemoteJid || contact.phone !== sourcePhone)) {
+          } else if (remote_jid && (contact.remote_jid !== remote_jid || contact.phone !== sourcePhone)) {
             // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
-              .update({ remote_jid: sourceRemoteJid, phone: sourcePhone })
+              .update({ remote_jid, phone: sourcePhone })
               .eq("id", contact.id);
-            contact.remote_jid = sourceRemoteJid;
+            contact.remote_jid = remote_jid;
             contact.phone = sourcePhone;
           }
           if (!contact) {
@@ -326,12 +326,12 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
           // Find/create conversation. Store the exact WhatsApp JID on the conversation.
           let conv: any = null;
-          if (sourceRemoteJid) {
+          if (remote_jid) {
             const byJid = await supabaseAdmin
               .from("conversations")
               .select("*")
               .eq("workspace_id", workspaceId)
-              .eq("remote_jid", sourceRemoteJid)
+              .eq("remote_jid", remote_jid)
               .maybeSingle();
             conv = byJid.data;
           }
@@ -345,21 +345,20 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conv = byContact.data;
           }
           if (!conv) {
-            console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid: sourceRemoteJid });
+            console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid: sourceRemoteJid })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid })
               .select()
               .single();
             conv = ins.data;
-          } else if (sourceRemoteJid && conv.remote_jid !== sourceRemoteJid) {
-            console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid: sourceRemoteJid });
-          } else if (sourceRemoteJid && conv.remote_jid !== sourceRemoteJid) {
+          } else if (remote_jid && conv.remote_jid !== remote_jid) {
+            console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             await supabaseAdmin
               .from("conversations")
-              .update({ remote_jid: sourceRemoteJid })
+              .update({ remote_jid })
               .eq("id", conv.id);
-            conv.remote_jid = sourceRemoteJid;
+            conv.remote_jid = remote_jid;
           }
           if (!conv) {
             return new Response(JSON.stringify({ error: "conv failed" }), {
