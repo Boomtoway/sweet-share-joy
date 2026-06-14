@@ -308,6 +308,7 @@ export type Database = {
           is_whitelisted: boolean
           name: string | null
           phone: string | null
+          remote_jid: string | null
           tags: string[]
           updated_at: string
           workspace_id: string
@@ -324,6 +325,7 @@ export type Database = {
           is_whitelisted?: boolean
           name?: string | null
           phone?: string | null
+          remote_jid?: string | null
           tags?: string[]
           updated_at?: string
           workspace_id: string
@@ -340,6 +342,7 @@ export type Database = {
           is_whitelisted?: boolean
           name?: string | null
           phone?: string | null
+          remote_jid?: string | null
           tags?: string[]
           updated_at?: string
           workspace_id?: string
@@ -565,6 +568,7 @@ export type Database = {
           id: string
           provider_message_id: string | null
           sender: Database["public"]["Enums"]["message_sender"]
+          target_jid: string | null
           workspace_id: string
         }
         Insert: {
@@ -581,6 +585,7 @@ export type Database = {
           id?: string
           provider_message_id?: string | null
           sender: Database["public"]["Enums"]["message_sender"]
+          target_jid?: string | null
           workspace_id: string
         }
         Update: {
@@ -597,6 +602,7 @@ export type Database = {
           id?: string
           provider_message_id?: string | null
           sender?: Database["public"]["Enums"]["message_sender"]
+          target_jid?: string | null
           workspace_id?: string
         }
         Relationships: [
