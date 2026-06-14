@@ -329,10 +329,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               "error",
             ),
           );
-          // Best-effort: keep the worker alive after response in CF Workers.
-          try {
-            (request as any).waitUntil?.(work);
-          } catch {}
+          scheduleBackground(request, work);
 
 
           return new Response(JSON.stringify({ ok: true, replied: false }), { headers: cors });
