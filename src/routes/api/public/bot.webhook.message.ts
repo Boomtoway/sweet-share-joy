@@ -738,6 +738,7 @@ async function generateAndSend(args: {
       try {
         parsed = JSON.parse(txt);
       } catch {}
+      console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: parsed });
       await logStep(supabaseAdmin, workspaceId, "vps_send_status", {
         status: res.status,
         http_ok: res.ok,
