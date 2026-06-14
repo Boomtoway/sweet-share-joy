@@ -406,33 +406,36 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             phone_saved: contact.phone,
           });
 
-          // ---- Everything after inbound persistence runs in the background.
-          // The webhook must ACK within 1s and never wait for Gemini/delay/VPS. ----
-          const work = generateAndSend({
-            supabaseAdmin,
-            session,
-            conversation: conv,
-            contact,
-            workspaceId,
-            inboundBody: inboundText,
-            fromPhone: sourcePhone,
-            remoteJid: remote_jid,
-          }).catch((err) =>
-            logStep(
+          // ---- Run inline. Background tasks (EdgeRuntime.waitUntil /
+          // request.waitUntil) do not exist in this Worker runtime, so any
+          // work scheduled after Response was being dropped — the VPS send
+          // never executed. Await it so the fetch actually runs. ----
+          try {
+            await generateAndSend({
+              supabaseAdmin,
+              session,
+              conversation: conv,
+              contact,
+              workspaceId,
+              inboundBody: inboundText,
+              fromPhone: sourcePhone,
+              remoteJid: remote_jid,
+            });
+          } catch (err: any) {
+            await logStep(
               supabaseAdmin,
               workspaceId,
               `generateAndSend crashed: ${err?.message}`,
               { stack: err?.stack?.slice(0, 500) },
               "error",
-            ),
-          );
-          scheduleBackground(request, work);
+            );
+          }
 
           queueLog(request, supabaseAdmin, workspaceId, "http_200_returned", {
-            queued: true,
+            queued: false,
             ms: Date.now() - receivedAt,
           });
-          return new Response(JSON.stringify({ ok: true, queued: true }), { headers: cors });
+          return new Response(JSON.stringify({ ok: true }), { headers: cors });
         } catch (e: any) {
           await logStep(
             supabaseAdmin,
