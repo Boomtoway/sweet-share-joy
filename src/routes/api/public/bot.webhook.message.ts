@@ -102,19 +102,31 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             session.messages_today = 0;
           }
 
-          // Find/create contact
-          let { data: contact } = await supabaseAdmin
+          // Find/create contact (match by remote_jid when available, else by phone)
+          const lookupQuery = supabaseAdmin
             .from("contacts")
             .select("*")
-            .eq("workspace_id", workspaceId)
-            .eq("phone", body.from)
-            .maybeSingle();
+            .eq("workspace_id", workspaceId);
+          const { data: contactByJid } = body.remote_jid
+            ? await lookupQuery.eq("remote_jid", body.remote_jid).maybeSingle()
+            : { data: null as any };
+          let contact = contactByJid as any;
+          if (!contact) {
+            const { data: contactByPhone } = await supabaseAdmin
+              .from("contacts")
+              .select("*")
+              .eq("workspace_id", workspaceId)
+              .eq("phone", body.from)
+              .maybeSingle();
+            contact = contactByPhone;
+          }
           if (!contact) {
             const ins = await supabaseAdmin
               .from("contacts")
               .insert({
                 workspace_id: workspaceId,
                 phone: body.from,
+                remote_jid: body.remote_jid ?? null,
                 name: body.contact_name ?? body.from,
                 channel: "whatsapp",
                 external_id: body.external_id,
@@ -122,6 +134,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .select()
               .single();
             contact = ins.data;
+          } else if (body.remote_jid && contact.remote_jid !== body.remote_jid) {
+            // Backfill remote_jid on existing contact
+            await supabaseAdmin
+              .from("contacts")
+              .update({ remote_jid: body.remote_jid })
+              .eq("id", contact.id);
+            contact.remote_jid = body.remote_jid;
           }
           if (!contact) {
             return new Response(JSON.stringify({ error: "contact failed" }), {
@@ -129,6 +148,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               headers: cors,
             });
           }
+
+          await logStep(supabaseAdmin, workspaceId, "Contact resolved", {
+            contact_id: contact.id,
+            remote_jid: contact.remote_jid,
+            phone_saved: contact.phone,
+            phone_before_save: body.from,
+          });
+
 
           // Find/create conversation
           let { data: conv } = await supabaseAdmin
