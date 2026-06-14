@@ -3,15 +3,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
-  disconnectVpsSession,
   getBotLogs,
   getVpsConfig,
-  getVpsQr,
-  getVpsStatus,
-  restartVpsSession,
   rotateWebhookSecret,
   saveVpsConfig,
-  testVpsConnection,
 } from "@/lib/vps/bot.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -63,6 +58,8 @@ function VpsPage() {
     try {
       res = await fetch(`${base}${path}`, {
         method,
+        mode: "cors",
+        credentials: "omit",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
