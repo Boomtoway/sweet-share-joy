@@ -32,11 +32,6 @@ function VpsPage() {
   const router = useRouter();
   const fetchCfg = useServerFn(getVpsConfig);
   const save = useServerFn(saveVpsConfig);
-  const test = useServerFn(testVpsConnection);
-  const status = useServerFn(getVpsStatus);
-  const qr = useServerFn(getVpsQr);
-  const restart = useServerFn(restartVpsSession);
-  const disconnect = useServerFn(disconnectVpsSession);
   const logs = useServerFn(getBotLogs);
   const rotate = useServerFn(rotateWebhookSecret);
 
@@ -56,6 +51,31 @@ function VpsPage() {
     if (cfg) setForm(cfg);
   }, [cfg]);
 
+  // Direct browser → VPS calls using saved URL + token (no internal /api/bot/* route).
+  const callVps = async (path: string, method: "GET" | "POST" = "GET") => {
+    const base = (form?.vps_endpoint ?? "").replace(/\/$/, "");
+    const token = form?.vps_api_token ?? "";
+    if (!base) throw new Error("Set VPS API URL first");
+    const res = await fetch(`${base}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const text = await res.text();
+    let body: any = text;
+    try { body = JSON.parse(text); } catch {}
+    if (!res.ok) throw new Error(typeof body === "string" ? body : body?.error || `VPS ${res.status}`);
+    return body;
+  };
+
+  const test = () => callVps("/api/bot/session-status");
+  const status = () => callVps("/api/bot/session-status");
+  const qr = () => callVps("/api/bot/qr");
+  const restart = () => callVps("/api/bot/restart", "POST");
+  const disconnect = () => callVps("/api/bot/disconnect", "POST");
+
   // Auto-poll status + QR while not connected
   useEffect(() => {
     if (!form?.vps_endpoint || !form?.vps_api_token) return;
@@ -65,11 +85,12 @@ function VpsPage() {
         const s: any = await status();
         if (cancelled) return;
         setStatusInfo(s);
-        if (s?.status !== "connected" && s?.has_qr) {
+        if (s?.status !== "connected") {
           const r: any = await qr();
           if (!cancelled) setQrData(typeof r === "string" ? r : r?.qr ?? null);
+        } else {
+          setQrData(null);
         }
-        if (s?.status === "connected") setQrData(null);
       } catch {}
     };
     tick();
@@ -78,7 +99,8 @@ function VpsPage() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [form?.vps_endpoint, form?.vps_api_token, status, qr]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form?.vps_endpoint, form?.vps_api_token]);
 
   const run = async (label: string, fn: () => Promise<any>) => {
     setBusy(label);
