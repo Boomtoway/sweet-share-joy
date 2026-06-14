@@ -432,7 +432,7 @@ async function generateAndSend(args: {
   contact: any;
   workspaceId: string;
   inboundBody: string;
-  fromPhone: string;
+  fromPhone: string | null;
   remoteJid: string | null;
 }) {
   const { supabaseAdmin, session, conversation, contact, workspaceId, inboundBody, fromPhone, remoteJid } =
