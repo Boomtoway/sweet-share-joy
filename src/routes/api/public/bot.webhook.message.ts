@@ -601,20 +601,34 @@ async function generateAndSend(args: {
       await markFailed(err);
       return;
     }
-    // Normalize to a valid WhatsApp JID. Never send contact_id or local-format numbers.
-    // 1) If we already have a JID (contains "@"), use it as-is.
-    // 2) Otherwise, take digits only, strip a leading 0, prepend default country code (94 = LK), then "@s.whatsapp.net".
+    // Build a Sri Lanka-normalized WhatsApp JID. NEVER use contact.id as recipient.
+    // Accepts: "94740123466@s.whatsapp.net" | "+94740123466" | "94740123466" | "0740123466" | "740123466"
     const defaultCc = (session.default_country_code as string | undefined)?.replace(/\D/g, "") || "94";
-    const toJid = (raw: string | null | undefined): string => {
-      const s = (raw ?? "").toString().trim();
-      if (s.includes("@")) return s;
-      let digits = s.replace(/\D/g, "");
-      if (digits.startsWith("00")) digits = digits.slice(2);
-      if (digits.startsWith("0")) digits = defaultCc + digits.slice(1);
-      else if (!digits.startsWith(defaultCc) && digits.length <= 10) digits = defaultCc + digits;
-      return `${digits}@s.whatsapp.net`;
+    const normalizeLk = (raw: string | null | undefined): string | null => {
+      if (!raw) return null;
+      const s = raw.toString().trim();
+      // Strip JID suffix if present, keep digits only
+      const userPart = s.includes("@") ? s.split("@")[0] : s;
+      let d = userPart.replace(/\D/g, "");
+      if (!d) return null;
+      if (d.startsWith("00")) d = d.slice(2);
+      if (d.startsWith("0")) d = defaultCc + d.slice(1);
+      else if (d.length === 9) d = defaultCc + d; // bare 9-digit subscriber number
+      else if (!d.startsWith(defaultCc) && d.length === 10) d = defaultCc + d;
+      // Final shape for LK: 94 + 9 digits = 11 digits
+      if (defaultCc === "94" && d.length !== 11) return null;
+      return d;
     };
-    const targetJid = toJid(remoteJid || fromPhone);
+
+    const normalized =
+      normalizeLk(remoteJid) ?? normalizeLk(fromPhone) ?? normalizeLk(contact?.phone);
+    if (!normalized) {
+      const err = `Could not normalize recipient (remote_jid=${remoteJid}, from=${fromPhone}, contact.phone=${contact?.phone})`;
+      await logStep(supabaseAdmin, workspaceId, err, {}, "error");
+      await markFailed(err);
+      return;
+    }
+    const targetJid = `${normalized}@s.whatsapp.net`;
     if (outboundMsg?.id) {
       await supabaseAdmin
         .from("messages")
