@@ -278,20 +278,26 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           });
 
 
-          // Find/create conversation
+          // Find/create conversation. Store the exact WhatsApp JID on the conversation.
           let { data: conv } = await supabaseAdmin
             .from("conversations")
             .select("*")
             .eq("workspace_id", workspaceId)
-            .eq("contact_id", contact.id)
+            .eq(sourceRemoteJid ? "remote_jid" : "contact_id", sourceRemoteJid ?? contact.id)
             .maybeSingle();
           if (!conv) {
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: workspaceId, contact_id: contact.id })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid: sourceRemoteJid })
               .select()
               .single();
             conv = ins.data;
+          } else if (sourceRemoteJid && conv.remote_jid !== sourceRemoteJid) {
+            await supabaseAdmin
+              .from("conversations")
+              .update({ remote_jid: sourceRemoteJid })
+              .eq("id", conv.id);
+            conv.remote_jid = sourceRemoteJid;
           }
           if (!conv) {
             return new Response(JSON.stringify({ error: "conv failed" }), {
@@ -327,8 +333,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             contact,
             workspaceId,
             inboundBody: body.body,
-            fromPhone: body.from,
-            remoteJid: body.remote_jid ?? contact.remote_jid ?? null,
+            fromPhone: sourcePhone,
+            remoteJid: sourceRemoteJid ?? conv.remote_jid ?? contact.remote_jid ?? null,
           }).catch((err) =>
             logStep(
               supabaseAdmin,
