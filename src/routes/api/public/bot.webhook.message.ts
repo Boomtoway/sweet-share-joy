@@ -60,8 +60,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
 
           await logStep(supabaseAdmin, workspaceId, "Message received", {
             from: body.from,
+            remote_jid: body.remote_jid,
+            phone_before_save: body.from,
             preview: body.body.slice(0, 80),
           });
+
+          // Sanity check: if a full JID was sent, its user part MUST match `from`.
+          if (body.remote_jid) {
+            const expected = body.remote_jid.split("@")[0];
+            if (expected !== body.from) {
+              await logStep(
+                supabaseAdmin,
+                workspaceId,
+                "phone_saved differs from remoteJid.split('@')[0]",
+                { remote_jid: body.remote_jid, from: body.from, expected },
+                "error",
+              );
+            }
+          }
+
 
           const { data: session } = await supabaseAdmin
             .from("whatsapp_sessions")
