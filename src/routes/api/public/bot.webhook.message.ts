@@ -170,15 +170,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           const body = WebhookSchema.parse(raw);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const sourceRemoteJid = validWhatsappJid(body.remote_jid) ?? validWhatsappJid(body.from);
-          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : body.from;
+          const rawFrom = body.from ?? body.phone ?? "";
+          const inboundText = body.body ?? body.message ?? "";
+          const sourceRemoteJid =
+            extractWhatsappJid(body.remote_jid) ??
+            extractWhatsappJid(body.remoteJid) ??
+            extractWhatsappJid(body.jid) ??
+            extractWhatsappJid(rawFrom) ??
+            normalizeLkPhoneToJid(rawFrom) ??
+            normalizeLkPhoneToJid(body.phone);
+          const sourcePhone = sourceRemoteJid ? jidUser(sourceRemoteJid) : normalizeLkPhone(rawFrom) ?? rawFrom.trim();
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
             remote_jid: body.remote_jid,
+            remoteJid: body.remoteJid,
+            jid: body.jid,
             source_remote_jid: sourceRemoteJid,
-            phone_before_save: body.from,
-            preview: body.body.slice(0, 80),
+            phone_before_save: rawFrom,
+            preview: inboundText.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
           });
 
@@ -186,13 +196,14 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           // Sanity check: if a full JID was sent, its user part MUST match `from`.
           if (sourceRemoteJid) {
             const expected = jidUser(sourceRemoteJid);
-            if (expected !== body.from) {
+            const normalizedFrom = normalizeLkPhone(rawFrom);
+            if (normalizedFrom && normalizedFrom !== expected) {
               queueLog(
                 request,
                 supabaseAdmin,
                 workspaceId,
                 "phone_saved differs from remoteJid.split('@')[0]",
-                { remote_jid: sourceRemoteJid, from: body.from, expected },
+                { remote_jid: sourceRemoteJid, from: rawFrom, normalized_from: normalizedFrom, expected },
                 "error",
               );
             }
