@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import {
   generateSalesReply,
   getAiSettings,
+  getRecentBotErrors,
   updateAiSettings,
 } from "@/lib/ai/sales-agent.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
