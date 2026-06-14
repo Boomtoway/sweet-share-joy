@@ -84,7 +84,7 @@ async function startSock() {
           m.message.videoMessage?.caption ??
           '';
 
-        const from = remoteJid.split('@')[0];
+        const from = remoteJid.split('@')[0]; // user part, exactly as received
         const name = m.pushName ?? from;
 
         const res = await fetch(LOVABLE_WEBHOOK_URL, {
@@ -93,7 +93,8 @@ async function startSock() {
           body: JSON.stringify({
             workspace_id: WORKSPACE_ID,
             secret: WEBHOOK_SECRET,
-            from,
+            from,                  // raw user part (no modification)
+            remote_jid: remoteJid, // full JID — use this to send replies
             contact_name: name,
             body,
             external_id: m.key.id,
