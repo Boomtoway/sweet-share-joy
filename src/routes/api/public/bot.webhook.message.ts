@@ -291,8 +291,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .select()
               .single();
             contact = ins.data;
-          } else if (sourceRemoteJid && contact.remote_jid !== sourceRemoteJid) {
-            // Backfill remote_jid on existing contact
+          } else if (sourceRemoteJid && (contact.remote_jid !== sourceRemoteJid || contact.phone !== sourcePhone)) {
+            // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
               .update({ remote_jid: sourceRemoteJid, phone: sourcePhone })
@@ -369,10 +369,16 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             .update({
               last_message_at: new Date().toISOString(),
               unread_count: (conv.unread_count ?? 0) + 1,
+              ...(sourceRemoteJid ? { remote_jid: sourceRemoteJid } : {}),
             })
             .eq("id", conv.id);
 
-          queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", { conv_id: conv.id });
+          queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", {
+            conv_id: conv.id,
+            conversation_remote_jid: sourceRemoteJid ?? conv.remote_jid ?? null,
+            contact_remote_jid: contact.remote_jid ?? null,
+            phone_saved: contact.phone,
+          });
 
           // ---- Everything after inbound persistence runs in the background.
           // The webhook must ACK within 1s and never wait for Gemini/delay/VPS. ----
