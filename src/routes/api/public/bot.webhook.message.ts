@@ -4,12 +4,16 @@ import { z } from "zod";
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
   secret: z.string().min(8).optional(),
-  from: z.string().min(1),
+  from: z.string().min(1).optional(),
   remote_jid: z.string().optional(),
+  remoteJid: z.string().optional(),
+  jid: z.string().optional(),
+  phone: z.string().optional(),
   contact_name: z.string().optional(),
-  body: z.string().default(""),
+  body: z.string().optional(),
+  message: z.string().optional(),
   external_id: z.string().optional(),
-});
+}).passthrough();
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -21,6 +25,28 @@ const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 function validWhatsappJid(value: unknown): string | null {
   const jid = typeof value === "string" ? value.trim() : "";
   return whatsappJidPattern.test(jid) ? jid : null;
+}
+
+function extractWhatsappJid(value: unknown): string | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const direct = validWhatsappJid(raw.replace(/^mailto:/i, ""));
+  if (direct) return direct;
+  const match = raw.match(/(?:mailto:)?([^\s<[\]()]+@s\.whatsapp\.net)/i);
+  return match ? validWhatsappJid(match[1]) : null;
+}
+
+function normalizeLkPhone(value: unknown): string | null {
+  let phone = typeof value === "string" ? value.trim() : "";
+  phone = phone.replace(/^mailto:/i, "").split("@")[0].replace(/[^\d+]/g, "");
+  if (phone.startsWith("+")) phone = phone.slice(1);
+  if (phone.startsWith("00")) phone = phone.slice(2);
+  if (phone.startsWith("0")) phone = `94${phone.slice(1)}`;
+  return /^94\d{9}$/.test(phone) ? phone : null;
+}
+
+function normalizeLkPhoneToJid(value: unknown): string | null {
+  const phone = normalizeLkPhone(value);
+  return phone ? `${phone}@s.whatsapp.net` : null;
 }
 
 function jidUser(jid: string) {
