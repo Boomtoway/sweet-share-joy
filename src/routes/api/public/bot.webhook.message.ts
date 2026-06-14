@@ -672,18 +672,13 @@ async function generateAndSend(args: {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        `VPS /send fetch failed: ${sendErr?.message}`,
-        { url, stack: sendErr?.stack?.slice(0, 400) },
+        "vps_send_error",
+        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to: targetJid, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
-      await logStep(supabaseAdmin, workspaceId, "vps_send_done", {
-        ok: false,
-        error: sendErr?.message ?? "unknown",
-        to: targetJid,
-        message_id: outboundMsg?.id,
-      }, "error");
     }
+
   } catch (e: any) {
     await logStep(
       supabaseAdmin,
