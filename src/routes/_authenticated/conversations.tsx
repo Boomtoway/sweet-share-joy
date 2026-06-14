@@ -368,7 +368,7 @@ function TestVpsSendButton() {
           Authorization: "Bearer startapplk-bot-12345",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ to: "94740123466", message: "Lovable VPS send test" }),
+        body: JSON.stringify({ to: "94740123466", message: "Test from Lovable" }),
       });
       const text = await res.text();
       setResult(`HTTP ${res.status}\n${text}`);
