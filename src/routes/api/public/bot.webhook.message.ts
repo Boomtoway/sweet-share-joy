@@ -5,6 +5,7 @@ const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
   secret: z.string().min(8),
   from: z.string().min(1),
+  remote_jid: z.string().optional(),
   contact_name: z.string().optional(),
   body: z.string().default(""),
   external_id: z.string().optional(),
