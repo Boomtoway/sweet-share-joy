@@ -406,33 +406,36 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             phone_saved: contact.phone,
           });
 
-          // ---- Everything after inbound persistence runs in the background.
-          // The webhook must ACK within 1s and never wait for Gemini/delay/VPS. ----
-          const work = generateAndSend({
-            supabaseAdmin,
-            session,
-            conversation: conv,
-            contact,
-            workspaceId,
-            inboundBody: inboundText,
-            fromPhone: sourcePhone,
-            remoteJid: remote_jid,
-          }).catch((err) =>
-            logStep(
+          // ---- Run inline. Background tasks (EdgeRuntime.waitUntil /
+          // request.waitUntil) do not exist in this Worker runtime, so any
+          // work scheduled after Response was being dropped — the VPS send
+          // never executed. Await it so the fetch actually runs. ----
+          try {
+            await generateAndSend({
+              supabaseAdmin,
+              session,
+              conversation: conv,
+              contact,
+              workspaceId,
+              inboundBody: inboundText,
+              fromPhone: sourcePhone,
+              remoteJid: remote_jid,
+            });
+          } catch (err: any) {
+            await logStep(
               supabaseAdmin,
               workspaceId,
               `generateAndSend crashed: ${err?.message}`,
               { stack: err?.stack?.slice(0, 500) },
               "error",
-            ),
-          );
-          scheduleBackground(request, work);
+            );
+          }
 
           queueLog(request, supabaseAdmin, workspaceId, "http_200_returned", {
-            queued: true,
+            queued: false,
             ms: Date.now() - receivedAt,
           });
-          return new Response(JSON.stringify({ ok: true, queued: true }), { headers: cors });
+          return new Response(JSON.stringify({ ok: true }), { headers: cors });
         } catch (e: any) {
           await logStep(
             supabaseAdmin,
@@ -682,7 +685,8 @@ async function generateAndSend(args: {
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
-    await logStep(supabaseAdmin, workspaceId, "reply_saved", {
+    console.log("AI_REPLY_CREATED", { message_id: outboundMsg?.id, length: replyText.length });
+    await logStep(supabaseAdmin, workspaceId, "AI_REPLY_CREATED", {
       length: replyText.length,
       message_id: outboundMsg?.id,
       delivery_status: "pending",
@@ -717,11 +721,12 @@ async function generateAndSend(args: {
     }
     const url = DIRECT_VPS_SEND_URL;
     const payload = { to, message: replyText };
+    console.log("CALLING_VPS_SEND", { url, to, message_id: outboundMsg?.id });
     console.log("START_SEND", { message_id: outboundMsg?.id });
     console.log("SEND_URL", url);
     console.log("SEND_TO", to);
     console.log("SEND_MESSAGE", replyText);
-    await logStep(supabaseAdmin, workspaceId, "START_SEND", {
+    await logStep(supabaseAdmin, workspaceId, "CALLING_VPS_SEND", {
       url,
       to,
       message: replyText,
@@ -776,10 +781,11 @@ async function generateAndSend(args: {
           (typeof parsed === "object" && parsed?.error) ||
           (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
         await markFailed(`VPS ${res.status}: ${err}`);
+        console.log("SEND_FAILED", { status: res.status, error: String(err).slice(0, 400) });
         await logStep(
           supabaseAdmin,
           workspaceId,
-          "SEND_ERROR",
+          "SEND_FAILED",
           {
             status: res.status,
             http_ok: res.ok,
@@ -792,11 +798,11 @@ async function generateAndSend(args: {
         );
       }
     } catch (sendErr: any) {
-      console.log("SEND_ERROR", sendErr?.message);
+      console.log("SEND_FAILED", sendErr?.message);
       await logStep(
         supabaseAdmin,
         workspaceId,
-        "SEND_ERROR",
+        "SEND_FAILED",
         { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
         "error",
       );
