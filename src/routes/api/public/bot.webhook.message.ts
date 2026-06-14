@@ -704,14 +704,18 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Emergency test send path: always call the direct VPS /send endpoint with the hardcoded recipient.
-    if (!session.vps_api_token) {
-      const err = "VPS token not configured";
-      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
-      await markFailed(err);
-      return;
+    // Direct VPS send — mirror the working "Test VPS Send" fetch.
+    const to = pickVpsRecipient(conversation, contact);
+    console.log("AI REPLY:", replyText);
+    if (outboundMsg?.id) {
+      await supabaseAdmin
+        .from("messages")
+        .update({ target_jid: to })
+        .eq("id", outboundMsg.id);
     }
-    const to = TEST_VPS_RECIPIENT;
+    const url = DIRECT_VPS_SEND_URL;
+    const payload = { to, message: replyText };
+    console.log("SENDING_TO_VPS_URL", url);
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
