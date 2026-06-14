@@ -294,8 +294,10 @@ async function generateAndSend(args: {
   workspaceId: string;
   inboundBody: string;
   fromPhone: string;
+  remoteJid: string | null;
 }) {
-  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone } = args;
+  const { supabaseAdmin, session, conversation, workspaceId, inboundBody, fromPhone, remoteJid } = args;
+
 
   try {
     // ---- Reply rules (keyword match) ----
