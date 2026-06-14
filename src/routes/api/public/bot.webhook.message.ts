@@ -394,19 +394,27 @@ async function generateAndSend(args: {
 
 
 
-    // Save outbound
-    await supabaseAdmin.from("messages").insert({
-      workspace_id: workspaceId,
-      conversation_id: conversation.id,
-      direction: "outbound",
-      sender: "ai",
-      body: replyText,
-    });
+    // Save outbound as pending
+    const { data: outboundMsg } = await supabaseAdmin
+      .from("messages")
+      .insert({
+        workspace_id: workspaceId,
+        conversation_id: conversation.id,
+        direction: "outbound",
+        sender: "ai",
+        body: replyText,
+        delivery_status: "pending",
+      })
+      .select()
+      .single();
     await supabaseAdmin
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
-    await logStep(supabaseAdmin, workspaceId, "Reply saved", { length: replyText.length });
+    await logStep(supabaseAdmin, workspaceId, "Reply saved (pending)", {
+      length: replyText.length,
+      message_id: outboundMsg?.id,
+    });
 
     // Human-like delay
     const delaySec =
@@ -417,40 +425,79 @@ async function generateAndSend(args: {
       );
     await new Promise((r) => setTimeout(r, delaySec * 1000));
 
+    const markFailed = async (err: string) => {
+      if (!outboundMsg?.id) return;
+      await supabaseAdmin
+        .from("messages")
+        .update({ delivery_status: "failed", delivery_error: err.slice(0, 1000) })
+        .eq("id", outboundMsg.id);
+    };
+
     // Send via VPS /send
     if (!session.vps_endpoint || !session.vps_api_token) {
-      await logStep(
-        supabaseAdmin,
-        workspaceId,
-        "VPS endpoint/token not configured — cannot send",
-        {},
-        "error",
-      );
+      const err = "VPS endpoint/token not configured";
+      await logStep(supabaseAdmin, workspaceId, `${err} — cannot send`, {}, "error");
+      await markFailed(err);
       return;
     }
     const url = session.vps_endpoint.replace(/\/$/, "") + "/send";
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.vps_api_token}`,
-      },
-      body: JSON.stringify({ to: fromPhone, message: replyText }),
+    const payload = { to: fromPhone, message: replyText };
+    await logStep(supabaseAdmin, workspaceId, "VPS /send request", {
+      url,
+      to: fromPhone,
+      message_length: replyText.length,
+      message_id: outboundMsg?.id,
     });
-    const txt = await res.text();
-    if (!res.ok) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.vps_api_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const txt = await res.text();
+      let parsed: any = txt;
+      try {
+        parsed = JSON.parse(txt);
+      } catch {}
       await logStep(
         supabaseAdmin,
         workspaceId,
-        `VPS /send failed (${res.status})`,
-        { body: txt.slice(0, 300), url },
+        `VPS /send response ${res.status}`,
+        { status: res.status, ok: res.ok, body: txt.slice(0, 800), url },
+        res.ok ? "info" : "error",
+      );
+      if (!res.ok) {
+        const err =
+          (typeof parsed === "object" && parsed?.error) ||
+          (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
+        await markFailed(`VPS ${res.status}: ${err}`);
+      } else if (outboundMsg?.id) {
+        await supabaseAdmin
+          .from("messages")
+          .update({
+            delivery_status: "sent",
+            provider_message_id: parsed?.id ?? null,
+            delivered_at: new Date().toISOString(),
+          })
+          .eq("id", outboundMsg.id);
+        await logStep(supabaseAdmin, workspaceId, "Reply sent", {
+          to: fromPhone,
+          provider_message_id: parsed?.id ?? null,
+          message_id: outboundMsg.id,
+        });
+      }
+    } catch (sendErr: any) {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        `VPS /send fetch failed: ${sendErr?.message}`,
+        { url, stack: sendErr?.stack?.slice(0, 400) },
         "error",
       );
-    } else {
-      await logStep(supabaseAdmin, workspaceId, "Reply sent", {
-        to: fromPhone,
-        url,
-      });
+      await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
     }
   } catch (e: any) {
     await logStep(

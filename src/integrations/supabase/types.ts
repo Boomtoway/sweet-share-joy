@@ -556,8 +556,14 @@ export type Database = {
           body: string | null
           conversation_id: string
           created_at: string
+          delivered_at: string | null
+          delivery_error: string | null
+          delivery_status:
+            | Database["public"]["Enums"]["message_delivery_status"]
+            | null
           direction: Database["public"]["Enums"]["message_direction"]
           id: string
+          provider_message_id: string | null
           sender: Database["public"]["Enums"]["message_sender"]
           workspace_id: string
         }
@@ -566,8 +572,14 @@ export type Database = {
           body?: string | null
           conversation_id: string
           created_at?: string
+          delivered_at?: string | null
+          delivery_error?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["message_delivery_status"]
+            | null
           direction: Database["public"]["Enums"]["message_direction"]
           id?: string
+          provider_message_id?: string | null
           sender: Database["public"]["Enums"]["message_sender"]
           workspace_id: string
         }
@@ -576,8 +588,14 @@ export type Database = {
           body?: string | null
           conversation_id?: string
           created_at?: string
+          delivered_at?: string | null
+          delivery_error?: string | null
+          delivery_status?:
+            | Database["public"]["Enums"]["message_delivery_status"]
+            | null
           direction?: Database["public"]["Enums"]["message_direction"]
           id?: string
+          provider_message_id?: string | null
           sender?: Database["public"]["Enums"]["message_sender"]
           workspace_id?: string
         }
@@ -913,6 +931,7 @@ export type Database = {
         | "lost"
         | "interested"
         | "appointment_booked"
+      message_delivery_status: "pending" | "sent" | "delivered" | "failed"
       message_direction: "inbound" | "outbound"
       message_sender: "contact" | "ai" | "human" | "system"
       risk_severity: "low" | "medium" | "high" | "critical"
@@ -1063,6 +1082,7 @@ export const Constants = {
         "interested",
         "appointment_booked",
       ],
+      message_delivery_status: ["pending", "sent", "delivered", "failed"],
       message_direction: ["inbound", "outbound"],
       message_sender: ["contact", "ai", "human", "system"],
       risk_severity: ["low", "medium", "high", "critical"],
