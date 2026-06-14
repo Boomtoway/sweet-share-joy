@@ -685,7 +685,8 @@ async function generateAndSend(args: {
       .from("whatsapp_sessions")
       .update({ messages_today: (session.messages_today ?? 0) + 1 })
       .eq("id", session.id);
-    await logStep(supabaseAdmin, workspaceId, "reply_saved", {
+    console.log("AI_REPLY_CREATED", { message_id: outboundMsg?.id, length: replyText.length });
+    await logStep(supabaseAdmin, workspaceId, "AI_REPLY_CREATED", {
       length: replyText.length,
       message_id: outboundMsg?.id,
       delivery_status: "pending",
