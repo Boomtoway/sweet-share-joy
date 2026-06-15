@@ -70,6 +70,7 @@ const ConfigSchema = z.object({
 const ManualSendSchema = z.object({
   conversationId: z.string().uuid(),
   message: z.string().trim().min(1).max(4000),
+  to: z.string().trim().min(1).optional(),
 });
 
 const TestSendSchema = z.object({
