@@ -135,7 +135,16 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       contact = c;
     }
 
-    const to = pickVpsRecipient(conversation, contact);
+    const to = pickVpsRecipientJid(conversation, contact);
+    console.log("NORMALIZED_JID", { to, conversation_remote_jid: conversation.remote_jid, contact_remote_jid: contact?.remote_jid, contact_phone: contact?.phone });
+    console.log("FINAL_SEND_JID", to);
+    await log(context.supabase, workspaceId, "info", "NORMALIZED_JID", {
+      to,
+      conversation_remote_jid: conversation.remote_jid,
+      contact_remote_jid: contact?.remote_jid,
+      contact_phone: contact?.phone,
+    });
+    await log(context.supabase, workspaceId, "info", "FINAL_SEND_JID", { to });
 
     const { data: outbound, error: insertError } = await context.supabase
       .from("messages")
