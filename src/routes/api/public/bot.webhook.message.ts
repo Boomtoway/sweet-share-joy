@@ -718,7 +718,17 @@ async function generateAndSend(args: {
     };
 
     // Direct VPS send — mirror the working "Test VPS Send" fetch.
-    const to = pickVpsRecipient(conversation, contact);
+    const to = pickVpsRecipientJid(conversation, contact, remoteJid);
+    console.log("NORMALIZED_JID", { to, conversation_remote_jid: conversation.remote_jid, contact_remote_jid: contact?.remote_jid, contact_phone: contact?.phone, inbound_remote_jid: remoteJid });
+    console.log("FINAL_SEND_JID", to);
+    await logStep(supabaseAdmin, workspaceId, "NORMALIZED_JID", {
+      to,
+      conversation_remote_jid: conversation.remote_jid,
+      contact_remote_jid: contact?.remote_jid,
+      contact_phone: contact?.phone,
+      inbound_remote_jid: remoteJid,
+    });
+    await logStep(supabaseAdmin, workspaceId, "FINAL_SEND_JID", { to });
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
