@@ -188,7 +188,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         message_id: outbound.id,
       });
       await writeDebug("failed", debugStr);
-      throw new Error(`VPS send failed: ${result.error ?? result.body?.error ?? `HTTP ${result.status}`}`);
+      throw new Error(`VPS send failed: HTTP ${result.status} — ${result.raw || result.error || "no response body"}`);
     }
 
     await writeDebug("sent", debugStr, result.body?.id ?? null);
