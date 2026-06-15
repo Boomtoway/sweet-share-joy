@@ -1,30 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-
-const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
-const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
-const TEST_VPS_RECIPIENT = "94740123466";
-
-const BLOCKED_RECIPIENTS = new Set(["27771812204615"]);
-
-function normalizeJid(value: unknown): string | null {
-  if (!value) return null;
-  const digits = String(value).replace(/\D/g, "");
-  return digits ? `${digits}@s.whatsapp.net` : null;
-}
-
-function pickVpsRecipientJid(conversation: any, contact: any): string {
-  const candidates = [conversation?.remote_jid, contact?.remote_jid, contact?.phone];
-  for (const c of candidates) {
-    const jid = normalizeJid(c);
-    if (!jid) continue;
-    const digits = jid.split("@")[0];
-    if (BLOCKED_RECIPIENTS.has(digits)) continue;
-    return jid;
-  }
-  return `${TEST_VPS_RECIPIENT}@s.whatsapp.net`;
-}
+import { sendViaVps, pickRecipient, VPS_SEND_URL } from "./send";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -135,16 +112,24 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       contact = c;
     }
 
-    const to = pickVpsRecipientJid(conversation, contact);
-    console.log("NORMALIZED_JID", { to, conversation_remote_jid: conversation.remote_jid, contact_remote_jid: contact?.remote_jid, contact_phone: contact?.phone });
-    console.log("FINAL_SEND_JID", to);
-    await log(context.supabase, workspaceId, "info", "NORMALIZED_JID", {
-      to,
+    const to = pickRecipient(conversation, contact);
+    console.log("SEND_BUTTON_CLICKED", { conversation_id: conversation.id });
+    console.log("SEND_TO_NUMBER", to);
+    await log(context.supabase, workspaceId, "info", "SEND_BUTTON_CLICKED", {
+      conversation_id: conversation.id,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact?.remote_jid,
       contact_phone: contact?.phone,
+      to,
     });
-    await log(context.supabase, workspaceId, "info", "FINAL_SEND_JID", { to });
+
+    if (!to) {
+      await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
+        error: "no recipient",
+        conversation_id: conversation.id,
+      });
+      throw new Error("No recipient phone available for this conversation");
+    }
 
     const { data: outbound, error: insertError } = await context.supabase
       .from("messages")
@@ -161,86 +146,58 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       .single();
     if (insertError) throw insertError;
 
-    const markFailed = async (err: string) => {
-      await context.supabase
-        .from("messages")
-        .update({ delivery_status: "failed", delivery_error: err.slice(0, 1000) })
-        .eq("id", outbound.id);
+    const writeDebug = async (status: "sent" | "failed", debug: string, providerId?: string | null) => {
+      const patch: any = {
+        delivery_status: status,
+        delivery_error: debug.slice(0, 1000),
+      };
+      if (status === "sent") {
+        patch.provider_message_id = providerId ?? null;
+        patch.delivered_at = new Date().toISOString();
+      }
+      await context.supabase.from("messages").update(patch).eq("id", outbound.id);
     };
 
-    const sendBody = { to, message: messageText };
-    console.log("START_SEND", { message_id: outbound.id });
-    console.log("SEND_URL", DIRECT_VPS_SEND_URL);
-    console.log("SEND_TO", to);
-    console.log("SEND_MESSAGE", messageText);
-    await log(context.supabase, workspaceId, "info", "START_SEND", {
-      url: DIRECT_VPS_SEND_URL,
+    console.log("SEND_TO_VPS", { url: VPS_SEND_URL, to, message_id: outbound.id });
+    await log(context.supabase, workspaceId, "info", "SEND_TO_VPS", {
+      url: VPS_SEND_URL,
       to,
       message: messageText,
       message_id: outbound.id,
     });
 
-    let vpsSucceeded = false;
-    try {
-      const res = await fetch(DIRECT_VPS_SEND_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${DIRECT_VPS_TOKEN}`,
-        },
-        body: JSON.stringify(sendBody),
-      });
-      const responseText = await res.text();
-      let responseBody: any = responseText;
-      try {
-        responseBody = JSON.parse(responseText);
-      } catch {}
-      console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: responseBody });
-      await log(context.supabase, workspaceId, "info", "VPS_RESPONSE", {
-        status: res.status,
-        http_ok: res.ok,
-        body: typeof responseBody === "string" ? responseBody.slice(0, 800) : responseBody,
+    const result = await sendViaVps(to, messageText);
+    const debugStr = result.error
+      ? `ERROR: ${result.error}`
+      : `HTTP ${result.status} ${result.raw}`;
+
+    console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "VPS_RESPONSE", {
+      status: result.status,
+      ok: result.ok,
+      body: result.body ?? result.raw,
+      to,
+      message_id: outbound.id,
+    });
+
+    if (!result.ok) {
+      await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
+        status: result.status,
+        error: result.error ?? result.body?.error ?? result.raw,
         to,
         message_id: outbound.id,
       });
-
-      if (!res.ok || responseBody?.ok !== true) {
-        const err = responseBody?.error || responseText || `HTTP ${res.status}`;
-        await markFailed(`VPS ${res.status}: ${err}`);
-        throw new Error(`VPS ${res.status}: ${err}`);
-      }
-      vpsSucceeded = true;
-
-      const { data: sent, error: updateError } = await context.supabase
-        .from("messages")
-        .update({
-          delivery_status: "sent",
-          provider_message_id: responseBody?.id ?? null,
-          delivered_at: new Date().toISOString(),
-        })
-        .eq("id", outbound.id)
-        .select()
-        .single();
-      if (updateError) throw updateError;
-
-      await context.supabase
-        .from("conversations")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", conversation.id);
-
-      return { message: sent, response: responseBody };
-    } catch (e: any) {
-      console.log("SEND_ERROR", e?.message);
-      await log(context.supabase, workspaceId, "error", "SEND_ERROR", {
-        error: e?.message,
-        stack: e?.stack?.slice(0, 400),
-        url: DIRECT_VPS_SEND_URL,
-        to,
-        message_id: outbound.id,
-      });
-      if (!vpsSucceeded) await markFailed(e?.message ?? "VPS send failed");
-      throw e;
+      await writeDebug("failed", debugStr);
+      throw new Error(`VPS send failed: ${result.error ?? result.body?.error ?? `HTTP ${result.status}`}`);
     }
+
+    await writeDebug("sent", debugStr, result.body?.id ?? null);
+    await context.supabase
+      .from("conversations")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", conversation.id);
+
+    return { message: { ...outbound, delivery_status: "sent" }, response: result.body };
   });
 
 async function log(
