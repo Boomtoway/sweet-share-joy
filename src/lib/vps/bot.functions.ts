@@ -118,8 +118,9 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       contact = c;
     }
 
-    // Resolve recipient: conversation.remote_jid || contact.remote_jid, then normalize.
-    const rawRecipient = conversation.remote_jid || contact?.remote_jid || contact?.phone || "";
+    // Recipient is taken ONLY from the explicit `to` passed by the selected contact panel,
+    // falling back to conversation/contact remote_jid. Never derived from message history.
+    const rawRecipient = data.to || conversation.remote_jid || contact?.remote_jid || contact?.phone || "";
     const to = pickRecipient({ remote_jid: rawRecipient }, null);
 
     console.log("MANUAL_SEND_START", { conversation_id: conversation.id, raw_recipient: rawRecipient, to });
