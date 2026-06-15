@@ -378,7 +378,10 @@ Content-Type: application/json
                 >
                   {l.level}
                 </Badge>
-                <span className="flex-1">{l.message}</span>
+                <span className="min-w-40">{l.message}</span>
+                <pre className="flex-1 whitespace-pre-wrap break-words text-muted-foreground">
+                  {JSON.stringify(l.metadata ?? {}, null, 2)}
+                </pre>
               </div>
             ))}
             {!botLogs?.length && <div className="text-muted-foreground">No logs yet</div>}
