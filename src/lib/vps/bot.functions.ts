@@ -187,7 +187,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", conversation.id);
 
-    return { message: outbound, response: result.body, raw: result.raw };
+    return { message: outbound, response: result.body, raw: result.raw, finalSendNumber: to };
   });
 
 export const testVpsSend = createServerFn({ method: "POST" })
