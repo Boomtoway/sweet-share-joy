@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import { sendViaVps, pickRecipient, normalizeRecipient, VPS_SEND_URL } from "@/lib/vps/send";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
