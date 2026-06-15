@@ -143,18 +143,22 @@ function ConversationsPage() {
   const sendReply = async () => {
     if (!active || !reply.trim() || !workspaceId) return;
     const messageText = reply.trim();
-    // Always use the CURRENTLY selected contact's identity. Contact wins over conversation.remote_jid
-    // because conversation.remote_jid can be stale from earlier imports.
     const panelRecipient = active.contact?.phone || active.contact?.remote_jid || active.remote_jid || "";
-    console.log("PANEL_RECIPIENT", { conversation_id: active.id, panelRecipient, contact_phone: active.contact?.phone, contact_jid: active.contact?.remote_jid, conv_jid: active.remote_jid });
-    if (!panelRecipient) { toast.error("Selected contact has no phone / remote_jid"); return; }
+    // Normalize & validate strictly: ^[0-9]{10,15}$
+    let normalized = String(panelRecipient).split("@")[0].replace(/\D/g, "");
+    if (normalized.startsWith("0")) normalized = `94${normalized.slice(1)}`;
+    if (!/^[0-9]{10,15}$/.test(normalized)) {
+      toast.error("Invalid WhatsApp number");
+      return;
+    }
+    console.log("PANEL_RECIPIENT", { conversation_id: active.id, panelRecipient, normalized });
     setSending(true);
     try {
-      const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: panelRecipient } });
+      const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: normalized } });
       setMessages((m) => [...m, result.message as any]);
       setConvs((cs) => cs.map((c) => (c.id === active.id ? { ...c, last_message_at: new Date().toISOString() } : c)));
       setReply("");
-      toast.success(`Message sent → ${(result as any).finalSendNumber ?? panelRecipient}`);
+      toast.success(`Message sent → ${(result as any).finalSendNumber ?? normalized}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Message failed");
     } finally {
