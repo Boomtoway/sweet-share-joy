@@ -703,25 +703,32 @@ async function generateAndSend(args: {
     };
 
     // Shared VPS send — same as manual "Send" button.
-    const to = pickRecipient(conversation, contact) || normalizeRecipient(remoteJid);
+    // Recipient priority matches manual send: contact.phone → contact.remote_jid → conversation.remote_jid → inbound jid.
+    const rawRecipient =
+      contact?.phone || contact?.remote_jid || conversation.remote_jid || remoteJid || "";
+    const to = normalizeRecipient(rawRecipient);
     console.log("SEND_TO_NUMBER", to);
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
       to,
+      raw_recipient: rawRecipient,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact?.remote_jid,
       contact_phone: contact?.phone,
       inbound_remote_jid: remoteJid,
     });
 
-    if (!to) {
+    // Strict validation: must start with 94 AND be 10–15 digits.
+    const isValid = /^94\d{9,13}$/.test(to);
+    if (!to || !isValid) {
+      const err = `Invalid WhatsApp number: ${to || "(empty)"}`;
       await logStep(
         supabaseAdmin,
         workspaceId,
         "VPS_ERROR",
-        { error: "no recipient available", message_id: outboundMsg?.id },
+        { error: err, to, raw_recipient: rawRecipient, message_id: outboundMsg?.id },
         "error",
       );
-      await markFailed("no recipient available");
+      await markFailed(err);
       return;
     }
 
