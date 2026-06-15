@@ -1,30 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-
-const DIRECT_VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
-const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
-const TEST_VPS_RECIPIENT = "94740123466";
-
-const BLOCKED_RECIPIENTS = new Set(["27771812204615"]);
-
-function normalizeJid(value: unknown): string | null {
-  if (!value) return null;
-  const digits = String(value).replace(/\D/g, "");
-  return digits ? `${digits}@s.whatsapp.net` : null;
-}
-
-function pickVpsRecipientJid(conversation: any, contact: any): string {
-  const candidates = [conversation?.remote_jid, contact?.remote_jid, contact?.phone];
-  for (const c of candidates) {
-    const jid = normalizeJid(c);
-    if (!jid) continue;
-    const digits = jid.split("@")[0];
-    if (BLOCKED_RECIPIENTS.has(digits)) continue;
-    return jid;
-  }
-  return `${TEST_VPS_RECIPIENT}@s.whatsapp.net`;
-}
+import { sendViaVps, pickRecipient, VPS_SEND_URL } from "./send";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
