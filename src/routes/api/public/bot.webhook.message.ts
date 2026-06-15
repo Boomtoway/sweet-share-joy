@@ -25,15 +25,22 @@ const DIRECT_VPS_TOKEN = "startapplk-bot-12345";
 const TEST_VPS_RECIPIENT = "94740123466";
 const BLOCKED_RECIPIENTS = new Set(["27771812204615"]);
 
-function pickVpsRecipient(conversation: any, contact: any): string {
-  const raw =
-    (conversation && typeof conversation.remote_jid === "string" && conversation.remote_jid) ||
-    (contact && typeof contact.phone === "string" && contact.phone) ||
-    TEST_VPS_RECIPIENT;
-  let digits = String(raw).split("@")[0].replace(/\D/g, "");
-  if (digits.startsWith("0")) digits = "94" + digits.slice(1);
-  if (!digits || BLOCKED_RECIPIENTS.has(digits)) return TEST_VPS_RECIPIENT;
-  return digits;
+function normalizeJid(value: unknown): string | null {
+  if (!value) return null;
+  const digits = String(value).replace(/\D/g, "");
+  return digits ? `${digits}@s.whatsapp.net` : null;
+}
+
+function pickVpsRecipientJid(conversation: any, contact: any, fallbackJid?: string | null): string {
+  const candidates = [conversation?.remote_jid, contact?.remote_jid, contact?.phone, fallbackJid];
+  for (const c of candidates) {
+    const jid = normalizeJid(c);
+    if (!jid) continue;
+    const digits = jid.split("@")[0];
+    if (BLOCKED_RECIPIENTS.has(digits)) continue;
+    return jid;
+  }
+  return `${TEST_VPS_RECIPIENT}@s.whatsapp.net`;
 }
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
@@ -711,7 +718,17 @@ async function generateAndSend(args: {
     };
 
     // Direct VPS send — mirror the working "Test VPS Send" fetch.
-    const to = pickVpsRecipient(conversation, contact);
+    const to = pickVpsRecipientJid(conversation, contact, remoteJid);
+    console.log("NORMALIZED_JID", { to, conversation_remote_jid: conversation.remote_jid, contact_remote_jid: contact?.remote_jid, contact_phone: contact?.phone, inbound_remote_jid: remoteJid });
+    console.log("FINAL_SEND_JID", to);
+    await logStep(supabaseAdmin, workspaceId, "NORMALIZED_JID", {
+      to,
+      conversation_remote_jid: conversation.remote_jid,
+      contact_remote_jid: contact?.remote_jid,
+      contact_phone: contact?.phone,
+      inbound_remote_jid: remoteJid,
+    });
+    await logStep(supabaseAdmin, workspaceId, "FINAL_SEND_JID", { to });
     console.log("AI REPLY:", replyText);
     if (outboundMsg?.id) {
       await supabaseAdmin
