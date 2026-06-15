@@ -1,7 +1,7 @@
 // Shared VPS sender used by manual replies and AI auto-replies.
 // Hits the VPS IP directly so DNS/proxy issues can't break delivery.
 
-export const VPS_SEND_URL = "http://77.37.44.33:3000/send";
+export const VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
 export const VPS_TOKEN = "startapplk-bot-12345";
 
 /** Normalize WhatsApp recipient: strip JID suffix, keep digits, leading 0 -> 94. */
