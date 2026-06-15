@@ -697,114 +697,89 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Direct VPS send — mirror the working "Test VPS Send" fetch.
-    const to = pickVpsRecipientJid(conversation, contact, remoteJid);
-    console.log("NORMALIZED_JID", { to, conversation_remote_jid: conversation.remote_jid, contact_remote_jid: contact?.remote_jid, contact_phone: contact?.phone, inbound_remote_jid: remoteJid });
-    console.log("FINAL_SEND_JID", to);
-    await logStep(supabaseAdmin, workspaceId, "NORMALIZED_JID", {
+    // Shared VPS send — same as manual "Send" button.
+    const to = pickRecipient(conversation, contact) || normalizeRecipient(remoteJid);
+    console.log("SEND_TO_NUMBER", to);
+    await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
       to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact?.remote_jid,
       contact_phone: contact?.phone,
       inbound_remote_jid: remoteJid,
     });
-    await logStep(supabaseAdmin, workspaceId, "FINAL_SEND_JID", { to });
-    console.log("AI REPLY:", replyText);
-    if (outboundMsg?.id) {
-      await supabaseAdmin
-        .from("messages")
-        .update({ target_jid: to })
-        .eq("id", outboundMsg.id);
-    }
-    const url = DIRECT_VPS_SEND_URL;
-    const payload = { to, message: replyText };
-    console.log("CALLING_VPS_SEND", { url, to, message_id: outboundMsg?.id });
-    console.log("START_SEND", { message_id: outboundMsg?.id });
-    console.log("SEND_URL", url);
-    console.log("SEND_TO", to);
-    console.log("SEND_MESSAGE", replyText);
-    await logStep(supabaseAdmin, workspaceId, "CALLING_VPS_SEND", {
-      url,
-      to,
-      message: replyText,
-      message_id: outboundMsg?.id,
-      conversation_remote_jid: conversation.remote_jid,
-      contact_remote_jid: contact.remote_jid,
-    });
 
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${DIRECT_VPS_TOKEN}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      const txt = await res.text();
-      let parsed: any = txt;
-      try {
-        parsed = JSON.parse(txt);
-      } catch {}
-      console.log("VPS_RESPONSE", { status: res.status, ok: res.ok, body: parsed });
-      await logStep(supabaseAdmin, workspaceId, "VPS_RESPONSE", {
-        status: res.status,
-        http_ok: res.ok,
-        provider_ok: typeof parsed === "object" ? parsed?.ok : undefined,
-        body: typeof parsed === "string" ? parsed.slice(0, 800) : parsed,
-        to,
-        message_id: outboundMsg?.id,
-      });
-
-      const providerOk = typeof parsed === "object" ? parsed?.ok === true : false;
-      if (res.ok && providerOk) {
-        if (outboundMsg?.id) {
-          await supabaseAdmin
-            .from("messages")
-            .update({
-              delivery_status: "sent",
-              provider_message_id: parsed?.id ?? null,
-              delivered_at: new Date().toISOString(),
-            })
-            .eq("id", outboundMsg.id);
-        }
-        await logStep(supabaseAdmin, workspaceId, "vps_send_success", {
-          to,
-          provider_message_id: parsed?.id ?? null,
-          message_id: outboundMsg?.id,
-        });
-      } else {
-        const err =
-          (typeof parsed === "object" && parsed?.error) ||
-          (typeof parsed === "string" ? parsed : `HTTP ${res.status}`);
-        await markFailed(`VPS ${res.status}: ${err}`);
-        console.log("SEND_FAILED", { status: res.status, error: String(err).slice(0, 400) });
-        await logStep(
-          supabaseAdmin,
-          workspaceId,
-          "SEND_FAILED",
-          {
-            status: res.status,
-            http_ok: res.ok,
-            provider_ok: providerOk,
-            error: String(err).slice(0, 800),
-            to,
-            message_id: outboundMsg?.id,
-          },
-          "error",
-        );
-      }
-    } catch (sendErr: any) {
-      console.log("SEND_FAILED", sendErr?.message);
+    if (!to) {
       await logStep(
         supabaseAdmin,
         workspaceId,
-        "SEND_FAILED",
-        { url, error: sendErr?.message, stack: sendErr?.stack?.slice(0, 400), to, message_id: outboundMsg?.id },
+        "VPS_ERROR",
+        { error: "no recipient available", message_id: outboundMsg?.id },
         "error",
       );
-      await markFailed(`Network: ${sendErr?.message ?? "unknown"}`);
+      await markFailed("no recipient available");
+      return;
     }
+
+    if (outboundMsg?.id) {
+      await supabaseAdmin.from("messages").update({ target_jid: to }).eq("id", outboundMsg.id);
+    }
+
+    console.log("SEND_TO_VPS", { url: VPS_SEND_URL, to, message_id: outboundMsg?.id });
+    await logStep(supabaseAdmin, workspaceId, "SEND_TO_VPS", {
+      url: VPS_SEND_URL,
+      to,
+      message: replyText,
+      message_id: outboundMsg?.id,
+    });
+
+    const result = await sendViaVps(to, replyText);
+    const debugStr = result.error
+      ? `ERROR: ${result.error}`
+      : `HTTP ${result.status} ${result.raw}`;
+
+    console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      "VPS_RESPONSE",
+      {
+        status: result.status,
+        ok: result.ok,
+        body: result.body ?? result.raw,
+        to,
+        message_id: outboundMsg?.id,
+      },
+      result.ok ? "info" : "error",
+    );
+
+    if (result.ok) {
+      if (outboundMsg?.id) {
+        await supabaseAdmin
+          .from("messages")
+          .update({
+            delivery_status: "sent",
+            provider_message_id: result.body?.id ?? null,
+            delivered_at: new Date().toISOString(),
+            delivery_error: debugStr.slice(0, 1000),
+          })
+          .eq("id", outboundMsg.id);
+      }
+    } else {
+      await logStep(
+        supabaseAdmin,
+        workspaceId,
+        "VPS_ERROR",
+        {
+          status: result.status,
+          error: result.error ?? result.body?.error ?? result.raw,
+          to,
+          message_id: outboundMsg?.id,
+        },
+        "error",
+      );
+      await markFailed(debugStr);
+    }
+
 
   } catch (e: any) {
     await logStep(
