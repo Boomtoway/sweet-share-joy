@@ -72,6 +72,11 @@ const ManualSendSchema = z.object({
   message: z.string().trim().min(1).max(4000),
 });
 
+const TestSendSchema = z.object({
+  to: z.string().trim().min(1).default("94740123466"),
+  message: z.string().trim().min(1).max(4000).default("Test from Lovable"),
+});
+
 export const saveVpsConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ConfigSchema.parse(i))
@@ -149,7 +154,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     const writeDebug = async (status: "sent" | "failed", debug: string, providerId?: string | null) => {
       const patch: any = {
         delivery_status: status,
-        delivery_error: debug.slice(0, 1000),
+        delivery_error: debug,
       };
       if (status === "sent") {
         patch.provider_message_id = providerId ?? null;
@@ -213,6 +218,33 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       .eq("id", conversation.id);
 
     return { message: { ...outbound, delivery_status: "sent" }, response: result.body };
+  });
+
+export const testVpsSend = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => TestSendSchema.parse(i ?? {}))
+  .handler(async ({ context, data }) => {
+    const { workspaceId } = await getSession(context.supabase, context.userId);
+    const to = pickRecipient({ remote_jid: data.to }, null);
+    const requestHeaders = { Authorization: `Bearer ${VPS_TOKEN}`, "Content-Type": "application/json" };
+    const requestBody = JSON.stringify({ to, message: data.message });
+
+    await log(context.supabase, workspaceId, "info", "SEND_TO_VPS", { url: VPS_SEND_URL, to, message: data.message, source: "TestVpsSendButton" });
+    await log(context.supabase, workspaceId, "info", "VPS_URL", { url: VPS_SEND_URL, source: "TestVpsSendButton" });
+    await log(context.supabase, workspaceId, "info", "REQUEST_HEADERS", { headers: requestHeaders, source: "TestVpsSendButton" });
+    await log(context.supabase, workspaceId, "info", "REQUEST_BODY", { body: requestBody, source: "TestVpsSendButton" });
+
+    const result = await sendViaVps(to, data.message);
+    const responseText = getVpsResponseText(result);
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_STATUS", { status: result.status, ok: result.ok, source: "TestVpsSendButton" });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_BODY", { body: responseText, parsed_body: result.body, source: "TestVpsSendButton" });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "VPS_RESPONSE", { status: result.status, ok: result.ok, body: responseText, parsed_body: result.body, to, source: "TestVpsSendButton" });
+
+    if (!result.ok) {
+      await log(context.supabase, workspaceId, "error", "VPS_ERROR", { status: result.status, error: responseText, to, source: "TestVpsSendButton" });
+      throw new Error(`VPS send failed: HTTP ${result.status} — ${responseText || "no response body"}`);
+    }
+    return { ok: true, status: result.status, body: result.body, raw: result.raw };
   });
 
 async function log(
