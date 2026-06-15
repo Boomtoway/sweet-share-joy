@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { sendViaVps, pickRecipient, VPS_SEND_URL } from "./send";
+import { sendViaVps, pickRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "./send";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -159,23 +159,38 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     };
 
     console.log("SEND_TO_VPS", { url: VPS_SEND_URL, to, message_id: outbound.id });
+    const requestHeaders = { Authorization: `Bearer ${VPS_TOKEN}`, "Content-Type": "application/json" };
+    const requestBody = JSON.stringify({ to, message: messageText });
     await log(context.supabase, workspaceId, "info", "SEND_TO_VPS", {
       url: VPS_SEND_URL,
       to,
       message: messageText,
       message_id: outbound.id,
     });
+    await log(context.supabase, workspaceId, "info", "VPS_URL", { url: VPS_SEND_URL, message_id: outbound.id });
+    await log(context.supabase, workspaceId, "info", "REQUEST_HEADERS", { headers: requestHeaders, message_id: outbound.id });
+    await log(context.supabase, workspaceId, "info", "REQUEST_BODY", { body: requestBody, message_id: outbound.id });
 
     const result = await sendViaVps(to, messageText);
-    const debugStr = result.error
-      ? `ERROR: ${result.error}`
-      : `HTTP ${result.status} ${result.raw}`;
+    const responseText = getVpsResponseText(result);
+    const debugStr = `HTTP ${result.status} ${responseText}`;
 
     console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_STATUS", {
+      status: result.status,
+      ok: result.ok,
+      message_id: outbound.id,
+    });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_BODY", {
+      body: responseText,
+      parsed_body: result.body,
+      message_id: outbound.id,
+    });
     await log(context.supabase, workspaceId, result.ok ? "info" : "error", "VPS_RESPONSE", {
       status: result.status,
       ok: result.ok,
-      body: result.body ?? result.raw,
+      body: responseText,
+      parsed_body: result.body,
       to,
       message_id: outbound.id,
     });
@@ -183,12 +198,12 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     if (!result.ok) {
       await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
         status: result.status,
-        error: result.error ?? result.body?.error ?? result.raw,
+        error: responseText,
         to,
         message_id: outbound.id,
       });
       await writeDebug("failed", debugStr);
-      throw new Error(`VPS send failed: HTTP ${result.status} — ${result.raw || result.error || "no response body"}`);
+      throw new Error(`VPS send failed: HTTP ${result.status} — ${responseText || "no response body"}`);
     }
 
     await writeDebug("sent", debugStr, result.body?.id ?? null);
