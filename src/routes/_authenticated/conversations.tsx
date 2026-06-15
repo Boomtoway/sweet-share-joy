@@ -301,8 +301,12 @@ function ConversationsPage() {
                             {m.delivery_error}
                           </pre>
                         )}
-                        {m.direction === "outbound" && m.target_jid && (
-                          <div className="text-[10px] mt-1 opacity-70">→ {m.target_jid}</div>
+                        {m.direction === "outbound" && (
+                          <div className="text-[10px] mt-1 opacity-70 space-y-0.5">
+                            <div>Phone Number: {active?.contact?.phone ?? "—"}</div>
+                            <div>Remote JID: {active?.contact?.remote_jid ?? active?.remote_jid ?? "—"}</div>
+                            <div>Final Send Number: {m.target_jid ?? "—"}</div>
+                          </div>
                         )}
                       </div>
                     </div>
