@@ -174,13 +174,18 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const rawFrom = String(body.from || body.remote_jid || body.jid || "");
+          const rawFrom = String(body.from || body.remote_jid || body.remoteJid || body.jid || body.phone || "");
           const inboundText = body.body ?? body.message ?? "";
-          const digits = rawFrom.replace(/\D/g, "");
-          const remote_jid = rawFrom.includes("@s.whatsapp.net")
-            ? rawFrom
-            : `${digits.startsWith("0") ? "94" + digits.slice(1) : digits}@s.whatsapp.net`;
-          const sourcePhone = remote_jid.replace("@s.whatsapp.net", "");
+          // STRICT: phone number is ALWAYS remoteJid.split('@')[0]. Never concat or derive
+          // from anything else (no conversation IDs, no internal IDs).
+          let sourcePhone = rawFrom.split("@")[0].replace(/[^\d]/g, "");
+          if (sourcePhone.startsWith("0")) sourcePhone = `94${sourcePhone.slice(1)}`;
+          const isValidWhatsAppNumber = (n: string) => /^[0-9]{10,15}$/.test(n);
+          if (!isValidWhatsAppNumber(sourcePhone)) {
+            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone }, "error");
+            return new Response(JSON.stringify({ error: "Invalid WhatsApp number" }), { status: 400, headers: cors });
+          }
+          const remote_jid = `${sourcePhone}@s.whatsapp.net`;
           if (!validWhatsappJid(remote_jid)) {
             return new Response(JSON.stringify({ error: "No valid WhatsApp JID in payload" }), {
               status: 400,

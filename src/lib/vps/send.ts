@@ -4,10 +4,15 @@
 export const VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
 export const VPS_TOKEN = "startapplk-bot-12345";
 
+/** Strict WhatsApp phone validator: 10–15 digits, no symbols. */
+export function isValidWhatsAppNumber(n: string): boolean {
+  return /^[0-9]{10,15}$/.test(n);
+}
+
 /** Normalize WhatsApp recipient: strip JID suffix, keep digits, leading 0 -> 94. */
 export function normalizeRecipient(value: unknown): string {
   let v = String(value ?? "").trim();
-  v = v.replace("@s.whatsapp.net", "");
+  v = v.split("@")[0];
   let digits = v.replace(/\D/g, "");
   if (digits.startsWith("0")) digits = `94${digits.slice(1)}`;
   return digits;
@@ -39,6 +44,13 @@ export function getVpsResponseText(result: VpsSendResult): string {
 
 export async function sendViaVps(to: string, message: string): Promise<VpsSendResult> {
   const recipient = normalizeRecipient(to);
+  if (!isValidWhatsAppNumber(recipient)) {
+    const err = `Invalid WhatsApp number: ${recipient || to}`;
+    return {
+      ok: false, status: 0, body: null, raw: err, error: err,
+      request: { url: VPS_SEND_URL, headers: {}, body: "", recipient },
+    };
+  }
   const authHeader = `Bearer ${VPS_TOKEN}`;
   const requestHeaders = { Authorization: authHeader, "Content-Type": "application/json" };
   const requestBody = JSON.stringify({ to: recipient, message });
