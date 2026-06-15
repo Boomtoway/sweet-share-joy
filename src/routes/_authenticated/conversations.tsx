@@ -143,13 +143,16 @@ function ConversationsPage() {
   const sendReply = async () => {
     if (!active || !reply.trim() || !workspaceId) return;
     const messageText = reply.trim();
+    // Use ONLY the currently selected contact panel recipient. Ignore message history.
+    const panelRecipient = active.contact?.remote_jid || active.remote_jid || active.contact?.phone || "";
+    if (!panelRecipient) { toast.error("Selected contact has no remote_jid / phone"); return; }
     setSending(true);
     try {
-      const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText } });
+      const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: panelRecipient } });
       setMessages((m) => [...m, result.message as any]);
       setConvs((cs) => cs.map((c) => (c.id === active.id ? { ...c, last_message_at: new Date().toISOString() } : c)));
       setReply("");
-      toast.success("Message sent");
+      toast.success(`Message sent → ${(result as any).finalSendNumber ?? panelRecipient}`);
     } catch (e: any) {
       toast.error(e?.message ?? "Message failed");
     } finally {
