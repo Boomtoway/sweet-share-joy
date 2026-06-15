@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { sendViaVps, pickRecipient, normalizeRecipient, VPS_SEND_URL } from "@/lib/vps/send";
+import { sendViaVps, pickRecipient, normalizeRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -725,19 +725,37 @@ async function generateAndSend(args: {
     }
 
     console.log("SEND_TO_VPS", { url: VPS_SEND_URL, to, message_id: outboundMsg?.id });
+    const requestHeaders = { Authorization: `Bearer ${VPS_TOKEN}`, "Content-Type": "application/json" };
+    const requestBody = JSON.stringify({ to, message: replyText });
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_VPS", {
       url: VPS_SEND_URL,
       to,
       message: replyText,
       message_id: outboundMsg?.id,
     });
+    await logStep(supabaseAdmin, workspaceId, "VPS_URL", { url: VPS_SEND_URL, message_id: outboundMsg?.id });
+    await logStep(supabaseAdmin, workspaceId, "REQUEST_HEADERS", { headers: requestHeaders, message_id: outboundMsg?.id });
+    await logStep(supabaseAdmin, workspaceId, "REQUEST_BODY", { body: requestBody, message_id: outboundMsg?.id });
 
     const result = await sendViaVps(to, replyText);
-    const debugStr = result.error
-      ? `ERROR: ${result.error}`
-      : `HTTP ${result.status} ${result.raw}`;
+    const responseText = getVpsResponseText(result);
+    const debugStr = `HTTP ${result.status} ${responseText}`;
 
     console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      "RESPONSE_STATUS",
+      { status: result.status, ok: result.ok, message_id: outboundMsg?.id },
+      result.ok ? "info" : "error",
+    );
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      "RESPONSE_BODY",
+      { body: responseText, parsed_body: result.body, message_id: outboundMsg?.id },
+      result.ok ? "info" : "error",
+    );
     await logStep(
       supabaseAdmin,
       workspaceId,
@@ -745,7 +763,8 @@ async function generateAndSend(args: {
       {
         status: result.status,
         ok: result.ok,
-        body: result.body ?? result.raw,
+        body: responseText,
+        parsed_body: result.body,
         to,
         message_id: outboundMsg?.id,
       },
@@ -771,7 +790,7 @@ async function generateAndSend(args: {
         "VPS_ERROR",
         {
           status: result.status,
-          error: result.error ?? result.body?.error ?? result.raw,
+          error: responseText,
           to,
           message_id: outboundMsg?.id,
         },
