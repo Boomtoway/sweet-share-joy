@@ -142,7 +142,9 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     // Call the EXACT SAME sender used by Test VPS Send.
     const result = await sendViaVps(to, messageText);
     const responseText = getVpsResponseText(result);
-    const debugStr = `HTTP ${result.status} ${responseText}`;
+    const debugStr = `FINAL_SEND_NUMBER: ${to} | VPS_RESPONSE: ok ${result.ok} | HTTP ${result.status} ${responseText}`;
+
+    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", { to, ok: result.ok });
 
     console.log("MANUAL_SEND_RESPONSE", { status: result.status, ok: result.ok, body: responseText });
     await log(context.supabase, workspaceId, result.ok ? "info" : "error", "MANUAL_SEND_RESPONSE", {
