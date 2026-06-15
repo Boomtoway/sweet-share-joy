@@ -70,6 +70,7 @@ const ConfigSchema = z.object({
 const ManualSendSchema = z.object({
   conversationId: z.string().uuid(),
   message: z.string().trim().min(1).max(4000),
+  to: z.string().trim().min(1).optional(),
 });
 
 const TestSendSchema = z.object({
@@ -117,8 +118,9 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       contact = c;
     }
 
-    // Resolve recipient: conversation.remote_jid || contact.remote_jid, then normalize.
-    const rawRecipient = conversation.remote_jid || contact?.remote_jid || contact?.phone || "";
+    // Recipient is taken ONLY from the explicit `to` passed by the selected contact panel,
+    // falling back to conversation/contact remote_jid. Never derived from message history.
+    const rawRecipient = data.to || conversation.remote_jid || contact?.remote_jid || contact?.phone || "";
     const to = pickRecipient({ remote_jid: rawRecipient }, null);
 
     console.log("MANUAL_SEND_START", { conversation_id: conversation.id, raw_recipient: rawRecipient, to });
@@ -140,7 +142,9 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     // Call the EXACT SAME sender used by Test VPS Send.
     const result = await sendViaVps(to, messageText);
     const responseText = getVpsResponseText(result);
-    const debugStr = `HTTP ${result.status} ${responseText}`;
+    const debugStr = `FINAL_SEND_NUMBER: ${to} | VPS_RESPONSE: ok ${result.ok} | HTTP ${result.status} ${responseText}`;
+
+    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", { to, ok: result.ok });
 
     console.log("MANUAL_SEND_RESPONSE", { status: result.status, ok: result.ok, body: responseText });
     await log(context.supabase, workspaceId, result.ok ? "info" : "error", "MANUAL_SEND_RESPONSE", {
@@ -183,7 +187,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", conversation.id);
 
-    return { message: outbound, response: result.body, raw: result.raw };
+    return { message: outbound, response: result.body, raw: result.raw, finalSendNumber: to };
   });
 
 export const testVpsSend = createServerFn({ method: "POST" })
