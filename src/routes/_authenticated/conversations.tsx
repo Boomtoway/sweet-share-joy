@@ -143,11 +143,11 @@ function ConversationsPage() {
   const sendReply = async () => {
     if (!active || !reply.trim() || !workspaceId) return;
     const messageText = reply.trim();
-    // Use ONLY the JID shown in the selected contact panel (matches line 329 display order).
-    // Never derive recipient from message history.
-    const panelRecipient = active.remote_jid || active.contact?.remote_jid || active.contact?.phone || "";
-    console.log("PANEL_RECIPIENT", { conversation_id: active.id, panelRecipient, conv_jid: active.remote_jid, contact_jid: active.contact?.remote_jid });
-    if (!panelRecipient) { toast.error("Selected contact has no remote_jid / phone"); return; }
+    // Always use the CURRENTLY selected contact's identity. Contact wins over conversation.remote_jid
+    // because conversation.remote_jid can be stale from earlier imports.
+    const panelRecipient = active.contact?.phone || active.contact?.remote_jid || active.remote_jid || "";
+    console.log("PANEL_RECIPIENT", { conversation_id: active.id, panelRecipient, contact_phone: active.contact?.phone, contact_jid: active.contact?.remote_jid, conv_jid: active.remote_jid });
+    if (!panelRecipient) { toast.error("Selected contact has no phone / remote_jid"); return; }
     setSending(true);
     try {
       const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: panelRecipient } });
