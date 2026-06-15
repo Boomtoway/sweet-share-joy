@@ -44,6 +44,13 @@ export function getVpsResponseText(result: VpsSendResult): string {
 
 export async function sendViaVps(to: string, message: string): Promise<VpsSendResult> {
   const recipient = normalizeRecipient(to);
+  if (!isValidWhatsAppNumber(recipient)) {
+    const err = `Invalid WhatsApp number: ${recipient || to}`;
+    return {
+      ok: false, status: 0, body: null, raw: err, error: err,
+      request: { url: VPS_SEND_URL, headers: {}, body: "", recipient },
+    };
+  }
   const authHeader = `Bearer ${VPS_TOKEN}`;
   const requestHeaders = { Authorization: authHeader, "Content-Type": "application/json" };
   const requestBody = JSON.stringify({ to: recipient, message });
