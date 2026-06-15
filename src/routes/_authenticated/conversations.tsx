@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { sendManualWhatsAppMessage } from "@/lib/vps/bot.functions";
+import { sendManualWhatsAppMessage, testVpsSend } from "@/lib/vps/bot.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -287,8 +287,10 @@ function ConversationsPage() {
                           )}
                         </div>
                         <div className="whitespace-pre-wrap">{m.body}</div>
-                        {m.delivery_status === "failed" && m.delivery_error && (
-                          <div className="text-[10px] mt-1 text-destructive">{m.delivery_error}</div>
+                        {m.direction === "outbound" && m.delivery_error && (
+                          <pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border border-border/60 bg-background/40 p-1 text-[10px] text-foreground">
+                            {m.delivery_error}
+                          </pre>
                         )}
                         {m.direction === "outbound" && m.target_jid && (
                           <div className="text-[10px] mt-1 opacity-70">→ {m.target_jid}</div>
@@ -355,6 +357,7 @@ function ConversationsPage() {
 }
 
 function TestVpsSendButton() {
+  const runTestVpsSend = useServerFn(testVpsSend);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -362,18 +365,13 @@ function TestVpsSendButton() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch("https://bot.statapplkmarketing.shop/send", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer startapplk-bot-12345",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ to: "94740123466", message: "Test from Lovable" }),
-      });
-      const text = await res.text();
-      setResult(`HTTP ${res.status}\n${text}`);
+      const res = await runTestVpsSend({ data: { to: "94740123466", message: "Test from Lovable" } });
+      setResult(`HTTP ${res.status}\n${res.raw || JSON.stringify(res.body)}`);
+      toast.success("Test VPS Send ok");
     } catch (e: any) {
-      setResult(`ERROR: ${e?.message ?? String(e)}`);
+      const message = e?.message ?? String(e);
+      setResult(`ERROR: ${message}`);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
