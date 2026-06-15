@@ -97,8 +97,8 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => ManualSendSchema.parse(i))
   .handler(async ({ context, data }) => {
     const { workspaceId } = await getSession(context.supabase, context.userId);
-
     const messageText = data.message.trim();
+
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")
       .select("id, workspace_id, contact_id, remote_jid")
@@ -117,16 +117,17 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       contact = c;
     }
 
-    const to = pickRecipient(conversation, contact);
-    console.log("SEND_BUTTON_CLICKED", { conversation_id: conversation.id });
-    console.log("SEND_TO_NUMBER", to);
-    await log(context.supabase, workspaceId, "info", "SEND_BUTTON_CLICKED", {
+    // Resolve recipient: conversation.remote_jid || contact.remote_jid, then normalize.
+    const rawRecipient = conversation.remote_jid || contact?.remote_jid || contact?.phone || "";
+    const to = pickRecipient({ remote_jid: rawRecipient }, null);
+
+    console.log("MANUAL_SEND_START", { conversation_id: conversation.id, raw_recipient: rawRecipient, to });
+    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_START", {
       conversation_id: conversation.id,
-      conversation_remote_jid: conversation.remote_jid,
-      contact_remote_jid: contact?.remote_jid,
-      contact_phone: contact?.phone,
+      raw_recipient: rawRecipient,
       to,
     });
+    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_NUMBER", { to });
 
     if (!to) {
       await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
@@ -136,6 +137,21 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       throw new Error("No recipient phone available for this conversation");
     }
 
+    // Call the EXACT SAME sender used by Test VPS Send.
+    const result = await sendViaVps(to, messageText);
+    const responseText = getVpsResponseText(result);
+    const debugStr = `HTTP ${result.status} ${responseText}`;
+
+    console.log("MANUAL_SEND_RESPONSE", { status: result.status, ok: result.ok, body: responseText });
+    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "MANUAL_SEND_RESPONSE", {
+      status: result.status,
+      ok: result.ok,
+      body: responseText,
+      parsed_body: result.body,
+      to,
+    });
+
+    // Persist message AFTER send so VPS response is visible under the bubble.
     const { data: outbound, error: insertError } = await context.supabase
       .from("messages")
       .insert({
@@ -144,80 +160,30 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
         direction: "outbound",
         sender: "human",
         body: messageText,
-        delivery_status: "pending",
+        delivery_status: result.ok ? "sent" : "failed",
+        delivery_error: debugStr,
         target_jid: to,
+        provider_message_id: result.ok ? result.body?.id ?? null : null,
+        delivered_at: result.ok ? new Date().toISOString() : null,
       })
       .select()
       .single();
-    if (insertError) throw insertError;
-
-    const writeDebug = async (status: "sent" | "failed", debug: string, providerId?: string | null) => {
-      const patch: any = {
-        delivery_status: status,
-        delivery_error: debug,
-      };
-      if (status === "sent") {
-        patch.provider_message_id = providerId ?? null;
-        patch.delivered_at = new Date().toISOString();
-      }
-      await context.supabase.from("messages").update(patch).eq("id", outbound.id);
-    };
-
-    console.log("SEND_TO_VPS", { url: VPS_SEND_URL, to, message_id: outbound.id });
-    const requestHeaders = { Authorization: `Bearer ${VPS_TOKEN}`, "Content-Type": "application/json" };
-    const requestBody = JSON.stringify({ to, message: messageText });
-    await log(context.supabase, workspaceId, "info", "SEND_TO_VPS", {
-      url: VPS_SEND_URL,
-      to,
-      message: messageText,
-      message_id: outbound.id,
-    });
-    await log(context.supabase, workspaceId, "info", "VPS_URL", { url: VPS_SEND_URL, message_id: outbound.id });
-    await log(context.supabase, workspaceId, "info", "REQUEST_HEADERS", { headers: requestHeaders, message_id: outbound.id });
-    await log(context.supabase, workspaceId, "info", "REQUEST_BODY", { body: requestBody, message_id: outbound.id });
-
-    const result = await sendViaVps(to, messageText);
-    const responseText = getVpsResponseText(result);
-    const debugStr = `HTTP ${result.status} ${responseText}`;
-
-    console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
-    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_STATUS", {
-      status: result.status,
-      ok: result.ok,
-      message_id: outbound.id,
-    });
-    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "RESPONSE_BODY", {
-      body: responseText,
-      parsed_body: result.body,
-      message_id: outbound.id,
-    });
-    await log(context.supabase, workspaceId, result.ok ? "info" : "error", "VPS_RESPONSE", {
-      status: result.status,
-      ok: result.ok,
-      body: responseText,
-      parsed_body: result.body,
-      to,
-      message_id: outbound.id,
-    });
+    if (insertError) {
+      await log(context.supabase, workspaceId, "error", "MANUAL_SEND_PERSIST_FAILED", {
+        error: insertError.message,
+      });
+    }
 
     if (!result.ok) {
-      await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
-        status: result.status,
-        error: responseText,
-        to,
-        message_id: outbound.id,
-      });
-      await writeDebug("failed", debugStr);
       throw new Error(`VPS send failed: HTTP ${result.status} — ${responseText || "no response body"}`);
     }
 
-    await writeDebug("sent", debugStr, result.body?.id ?? null);
     await context.supabase
       .from("conversations")
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", conversation.id);
 
-    return { message: { ...outbound, delivery_status: "sent" }, response: result.body };
+    return { message: outbound, response: result.body, raw: result.raw };
   });
 
 export const testVpsSend = createServerFn({ method: "POST" })
