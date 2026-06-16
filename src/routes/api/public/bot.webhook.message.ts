@@ -10,6 +10,8 @@ const WebhookSchema = z.object({
   remoteJid: z.string().optional(),
   jid: z.string().optional(),
   phone: z.string().optional(),
+  whatsapp_number: z.string().optional(),
+  sender_number: z.string().optional(),
   contact_name: z.string().optional(),
   body: z.string().optional(),
   message: z.string().optional(),
@@ -174,15 +176,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const rawFrom = String(body.from || body.remote_jid || body.remoteJid || body.jid || body.phone || "");
+          const rawFrom = String(body.remote_jid || body.remoteJid || body.jid || body.whatsapp_number || body.sender_number || body.phone || body.from || "");
           const inboundText = body.body ?? body.message ?? "";
-          // STRICT: phone number is ALWAYS remoteJid.split('@')[0]. Never concat or derive
-          // from anything else (no conversation IDs, no internal IDs).
-          let sourcePhone = rawFrom.split("@")[0].replace(/[^\d]/g, "");
-          if (sourcePhone.startsWith("0")) sourcePhone = `94${sourcePhone.slice(1)}`;
-          const isValidWhatsAppNumber = (n: string) => /^[0-9]{10,15}$/.test(n);
-          if (!isValidWhatsAppNumber(sourcePhone)) {
-            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone }, "error");
+          // STRICT: the phone number may only come from original WhatsApp sender fields.
+          // Never derive it from conversation_id/contact_id/lead_id or previous message recipients.
+          const sourcePhone = extractWhatsappSendNumber(body.remote_jid, body.remoteJid, body.jid, body.whatsapp_number, body.sender_number, body.phone, body.from);
+          if (!sourcePhone) {
+            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone, remote_jid: body.remote_jid, whatsapp_number: body.whatsapp_number, sender_number: body.sender_number, from: body.from }, "error");
             return new Response(JSON.stringify({ error: "Invalid WhatsApp number" }), { status: 400, headers: cors });
           }
           const remote_jid = `${sourcePhone}@s.whatsapp.net`;
