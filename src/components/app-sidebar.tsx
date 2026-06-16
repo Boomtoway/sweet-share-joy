@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import logoAsset from "@/assets/logo.png.asset.json";
 import {
   LayoutDashboard,
   Radio,
@@ -85,12 +86,16 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-primary to-chart-4 text-primary-foreground">
-            <Sparkles className="h-4 w-4" />
-          </div>
+          <img
+            src={logoAsset.url}
+            alt="AI Sales Agent Logo"
+            className="h-8 w-8 rounded-md object-cover"
+            width={32}
+            height={32}
+          />
           <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold">StartAppLK</span>
-            <span className="text-xs text-muted-foreground">AI Sales Agent</span>
+            <span className="text-sm font-semibold">AI Sales Agent</span>
+            <span className="text-xs text-muted-foreground">by StartAppLK</span>
           </div>
         </div>
       </SidebarHeader>
