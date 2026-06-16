@@ -24,6 +24,7 @@ import {
   Briefcase,
   CreditCard,
   Wallet,
+  TrendingUp,
 } from "lucide-react";
 
 import {
