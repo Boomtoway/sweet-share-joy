@@ -99,6 +99,69 @@ export const recordPaymentSlip = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const createPaymentRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: {
+    amount: number;
+    reference_number: string;
+    bank_name: string;
+    slip_path: string;
+    note?: string;
+  }) =>
+    z.object({
+      amount: z.number().positive(),
+      reference_number: z.string().trim().min(1).max(100),
+      bank_name: z.string().trim().min(1).max(100),
+      slip_path: z.string().min(1),
+      note: z.string().max(500).optional(),
+    }).parse(d)
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("workspace_id")
+      .eq("id", context.userId)
+      .maybeSingle();
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id")
+      .eq("client_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: inserted, error } = await supabaseAdmin
+      .from("payment_requests")
+      .insert({
+        client_id: context.userId,
+        workspace_id: profile?.workspace_id ?? null,
+        subscription_id: sub?.id ?? null,
+        amount: data.amount,
+        reference_number: data.reference_number,
+        bank_name: data.bank_name,
+        slip_path: data.slip_path,
+        note: data.note ?? null,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+
+    await supabaseAdmin.from("admin_notifications").insert({
+      title: "Payment slip uploaded",
+      message: `Client ${context.userId} submitted a payment of LKR ${data.amount} (Ref: ${data.reference_number}).`,
+      type: "payment_request",
+      metadata: {
+        client_id: context.userId,
+        payment_request_id: inserted.id,
+        slip_path: data.slip_path,
+      },
+    });
+
+    return { ok: true, id: inserted.id };
+  });
+
 export const getSlipSignedUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { path: string }) => d)
