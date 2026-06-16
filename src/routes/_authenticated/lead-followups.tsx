@@ -90,6 +90,15 @@ function FollowupsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
 
+  const runCheck = useMutation({
+    mutationFn: () => runCheckFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Scanned ${r?.scanned ?? 0} • Created ${r?.created ?? 0} • Sent ${r?.sent ?? 0} • Skipped ${r?.skipped ?? 0}`);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Check failed"),
+  });
+
   const filtered = useMemo(() => ({
     all: rows,
     pending: rows.filter((r) => r.status === "pending"),
