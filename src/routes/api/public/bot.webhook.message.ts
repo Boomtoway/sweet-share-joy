@@ -304,7 +304,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
-              })
+              } as any)
               .select()
               .single();
             contact = ins.data;
@@ -312,7 +312,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
-              .update({ remote_jid, phone: sourcePhone, whatsapp_number: sourcePhone, sender_number: sourcePhone })
+              .update({ remote_jid, phone: sourcePhone, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .eq("id", contact.id);
             contact.remote_jid = remote_jid;
             contact.phone = sourcePhone;
@@ -358,7 +358,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .select()
               .single();
             conv = ins.data;
@@ -366,7 +366,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             await supabaseAdmin
               .from("conversations")
-              .update({ remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone })
+              .update({ remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .eq("id", conv.id);
             conv.remote_jid = remote_jid;
             conv.whatsapp_number = sourcePhone;

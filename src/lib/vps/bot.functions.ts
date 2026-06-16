@@ -102,7 +102,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
 
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")
-      .select("id, workspace_id, contact_id, remote_jid")
+      .select("*")
       .eq("id", data.conversationId)
       .eq("workspace_id", workspaceId)
       .single();
@@ -112,7 +112,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     if (conversation.contact_id) {
       const { data: c } = await context.supabase
         .from("contacts")
-        .select("id, phone, remote_jid")
+        .select("*")
         .eq("id", conversation.contact_id)
         .maybeSingle();
       contact = c;
@@ -124,7 +124,16 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     // conversation_id/contact_id/lead_id are never candidates.
     const originalPhone = contact?.phone ?? "";
     const remoteJid = data.to || conversation.remote_jid || contact?.remote_jid || "";
-    const extractedWhatsappNumber = extractWhatsappSendNumber(data.to, conversation.remote_jid, contact?.remote_jid, contact?.phone);
+    const extractedWhatsappNumber = extractWhatsappSendNumber(
+      data.to,
+      conversation.remote_jid,
+      (conversation as any).whatsapp_number,
+      (conversation as any).sender_number,
+      contact?.remote_jid,
+      contact?.whatsapp_number,
+      contact?.sender_number,
+      contact?.phone,
+    );
     const to = extractedWhatsappNumber;
 
     console.log("MANUAL_SEND_START", { conversation_id: conversation.id, original_phone: originalPhone, remote_jid: remoteJid, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to });
