@@ -251,7 +251,17 @@ function ClientsPage() {
                         {c.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!window.confirm(`Send password-reset / invite email to ${c.email}?`)) return;
+                          inviteMut.mutate({ id: c.id });
+                        }}
+                      >
+                        <Mail className="h-3.5 w-3.5 mr-1" /> Send Invite
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -262,7 +272,7 @@ function ClientsPage() {
                           resetMut.mutate({ id: c.id, password: pw });
                         }}
                       >
-                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset password
+                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Password
                       </Button>
                     </TableCell>
                   </TableRow>
