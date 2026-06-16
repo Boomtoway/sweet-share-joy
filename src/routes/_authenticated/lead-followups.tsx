@@ -83,10 +83,13 @@ function FollowupsPage() {
   const runCheckFn = useServerFn(runFollowupCheckNow);
   const forceFn = useServerFn(forceCreateTestFollowup);
   const listConvsFn = useServerFn(listConversationsForFollowup);
+  const repairFn = useServerFn(repairContacts);
+  const cleanupFn = useServerFn(cleanupDuplicateContactsWithoutPhone);
 
   const qc = useQueryClient();
   const [tab, setTab] = useState("all");
   const [debugRows, setDebugRows] = useState<DebugRow[]>([]);
+  const [validOnly, setValidOnly] = useState(false);
   const [forceOpen, setForceOpen] = useState(false);
   const [forceConvId, setForceConvId] = useState<string>("");
 
