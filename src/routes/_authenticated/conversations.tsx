@@ -31,6 +31,8 @@ interface Conv {
   channel_id: string | null;
   status: string;
   remote_jid: string | null;
+  whatsapp_number?: string | null;
+  sender_number?: string | null;
   last_message_at: string | null;
   unread_count: number;
   contact: {
@@ -38,6 +40,8 @@ interface Conv {
     name: string | null;
     phone: string | null;
     remote_jid: string | null;
+    whatsapp_number?: string | null;
+    sender_number?: string | null;
     email: string | null;
     ai_enabled: boolean;
     human_takeover: boolean;
@@ -104,7 +108,7 @@ function ConversationsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("conversations")
-      .select("*, contact:contacts(id,name,phone,remote_jid,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
+      .select("*, contact:contacts(id,name,phone,remote_jid,whatsapp_number,sender_number,email,ai_enabled,human_takeover), channel:channels(id,type,name)")
       .eq("workspace_id", wsId)
       .order("last_message_at", { ascending: false, nullsFirst: false });
     setLoading(false);
@@ -153,12 +157,27 @@ function ConversationsPage() {
     if (!active || !reply.trim() || !workspaceId) return;
     const messageText = reply.trim();
     const panelRecipient = active.remote_jid || active.contact?.remote_jid || active.contact?.phone || "";
-    const normalized = extractWhatsappSendNumber(active.remote_jid, active.contact?.remote_jid, active.contact?.phone);
+    const normalized = extractWhatsappSendNumber(
+      active.whatsapp_number,
+      active.sender_number,
+      active.contact?.whatsapp_number,
+      active.contact?.sender_number,
+      active.remote_jid,
+      active.contact?.remote_jid,
+      active.contact?.phone,
+    );
     if (!normalized) {
       toast.error("Invalid WhatsApp number");
       return;
     }
-    console.log("PANEL_RECIPIENT", { conversation_id: active.id, original_phone: active.contact?.phone, remote_jid: panelRecipient, extracted_whatsapp_number: normalized, final_send_number: normalized });
+    console.log("PANEL_RECIPIENT", {
+      conversation_id: active.id,
+      contact_id: active.contact_id,
+      phone: active.contact?.phone,
+      remote_jid: panelRecipient,
+      extracted_whatsapp_number: normalized,
+      final_send_number: normalized,
+    });
     setSending(true);
     try {
       const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: normalized } });

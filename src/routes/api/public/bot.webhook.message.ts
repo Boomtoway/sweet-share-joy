@@ -176,13 +176,22 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
+          const rawSenderFields = {
+            remote_jid: body.remote_jid,
+            remoteJid: body.remoteJid,
+            jid: body.jid,
+            whatsapp_number: body.whatsapp_number,
+            sender_number: body.sender_number,
+            phone: body.phone,
+            from: body.from,
+          };
           const rawFrom = String(body.remote_jid || body.remoteJid || body.jid || body.whatsapp_number || body.sender_number || body.phone || body.from || "");
           const inboundText = body.body ?? body.message ?? "";
           // STRICT: the phone number may only come from original WhatsApp sender fields.
           // Never derive it from conversation_id/contact_id/lead_id or previous message recipients.
           const sourcePhone = extractWhatsappSendNumber(body.remote_jid, body.remoteJid, body.jid, body.whatsapp_number, body.sender_number, body.phone, body.from);
           if (!sourcePhone) {
-            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone, remote_jid: body.remote_jid, whatsapp_number: body.whatsapp_number, sender_number: body.sender_number, from: body.from }, "error");
+            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, raw_sender_fields: rawSenderFields, sourcePhone }, "error");
             return new Response(JSON.stringify({ error: "Invalid WhatsApp number" }), { status: 400, headers: cors });
           }
           const remote_jid = `${sourcePhone}@s.whatsapp.net`;
@@ -202,6 +211,7 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             remoteJid: body.remoteJid,
             jid: body.jid,
             source_remote_jid: remote_jid,
+            extracted_whatsapp_number: sourcePhone,
             phone_before_save: rawFrom,
             preview: inboundText.slice(0, 80),
             has_x_bot_secret: Boolean(headerSecret),
@@ -329,7 +339,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           queueLog(request, supabaseAdmin, workspaceId, "Contact resolved", {
             contact_id: contact.id,
             remote_jid: contact.remote_jid,
-            phone_saved: contact.phone,
+            phone: contact.phone,
+            final_send_number: sourcePhone,
             phone_before_save: rawFrom,
           });
 
@@ -712,28 +723,32 @@ async function generateAndSend(args: {
     // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
     // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
     // and message-history recipients are never used as WhatsApp numbers.
-    const originalPhone = contact?.phone ?? fromPhone ?? "";
+    const phone = contact?.phone ?? contact?.whatsapp_number ?? contact?.sender_number ?? fromPhone ?? "";
     const remoteJidForSend = remoteJid || conversation.remote_jid || contact?.remote_jid || "";
     const extractedWhatsappNumber = extractWhatsappSendNumber(
-      remoteJid,
-      conversation.remote_jid,
       conversation.whatsapp_number,
       conversation.sender_number,
-      contact?.remote_jid,
       contact?.whatsapp_number,
       contact?.sender_number,
       fromPhone,
+      remoteJid,
+      conversation.remote_jid,
+      contact?.remote_jid,
       contact?.phone,
     );
     const to = extractedWhatsappNumber;
     console.log("SEND_TO_NUMBER", {
-      original_phone: originalPhone,
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
       remote_jid: remoteJidForSend,
       extracted_whatsapp_number: extractedWhatsappNumber,
       final_send_number: to,
     });
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
-      original_phone: originalPhone,
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
       remote_jid: remoteJidForSend,
       extracted_whatsapp_number: extractedWhatsappNumber,
       final_send_number: to,
@@ -751,7 +766,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         "VPS_ERROR",
-        { error: err, original_phone: originalPhone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
+        { error: err, conversation_id: conversation.id, contact_id: contact.id, phone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(err);
