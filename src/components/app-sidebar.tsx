@@ -17,6 +17,7 @@ import {
   Sparkles,
   Calendar,
   Send,
+  Kanban,
 } from "lucide-react";
 import {
   Sidebar,
