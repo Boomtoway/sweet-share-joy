@@ -190,6 +190,16 @@ function CrmPage() {
     setWonPrompt(null);
   };
 
+  const navigate = useNavigate();
+  const createInvoiceFn = useServerFn(createInvoiceFromLead);
+  const createInvoice = async (lead: Lead) => {
+    try {
+      const inv: any = await createInvoiceFn({ data: { lead_id: lead.id } });
+      toast.success(`Invoice ${inv?.invoice_number ?? ""} created`);
+      navigate({ to: "/invoices" });
+    } catch (e: any) { toast.error(e?.message ?? "Failed to create invoice"); }
+  };
+
   const saveActive = async (patch: Partial<Lead>) => {
     if (!active) return;
     const next = { ...active, ...patch };
