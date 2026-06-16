@@ -283,10 +283,18 @@ function ConversationsPage() {
         </Card>
 
         <Card className="flex flex-col min-h-0">
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm">
               {active ? (active.contact?.name ?? active.contact?.phone ?? "Conversation") : "Select a conversation"}
             </CardTitle>
+            {active && (
+              <CreateAppointmentDialog
+                conversationId={active.id}
+                contactId={active.contact_id}
+                defaultName={active.contact?.name ?? ""}
+                defaultPhone={active.contact?.phone ?? ""}
+              />
+            )}
           </CardHeader>
           <CardContent className="flex-1 min-h-0 flex flex-col p-0">
             <ScrollArea className="flex-1 p-4">
