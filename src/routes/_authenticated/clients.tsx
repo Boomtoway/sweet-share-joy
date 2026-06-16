@@ -113,9 +113,24 @@ function ClientsPage() {
                 <Label>Email</Label>
                 <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <Label className="text-sm">Send Invite Email</Label>
+                  <p className="text-xs text-muted-foreground">Client receives an email to set their own password</p>
+                </div>
+                <Switch
+                  checked={form.send_invite}
+                  onCheckedChange={(v) => setForm({ ...form, send_invite: v })}
+                />
+              </div>
               <div className="space-y-2">
-                <Label>Password</Label>
-                <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <Label>{form.send_invite ? "Password (optional)" : "Password"}</Label>
+                <Input
+                  type="password"
+                  placeholder={form.send_invite ? "Leave blank to let client set via email" : "At least 6 characters"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Business name</Label>
