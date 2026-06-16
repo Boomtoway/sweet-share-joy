@@ -203,10 +203,11 @@ function CrmPage() {
   const won = byStage.won.length;
   const lost = byStage.lost.length;
   const decided = won + lost;
-  const conversion = decided ? Math.round((won / decided) * 100) : 0;
-  const revenueWon = byStage.won.reduce((s, l) => s + Number(l.value ?? 0), 0);
+  const conversion = total ? Math.round((won / total) * 100) : 0;
+  const revenueWon = byStage.won.reduce((s, l) => s + Number(l.deal_value ?? l.value ?? 0), 0);
+  const PIPELINE_STAGES: Stage[] = ["interested", "appointment_booked", "proposal", "negotiation"];
   const pipelineValue = leads
-    .filter((l) => l.stage !== "won" && l.stage !== "lost")
+    .filter((l) => PIPELINE_STAGES.includes(l.stage))
     .reduce((s, l) => s + Number(l.value ?? 0), 0);
   const dueSoon = leads.filter((l) => l.follow_up_date && new Date(l.follow_up_date).getTime() <= Date.now() + 86400000).length;
 
