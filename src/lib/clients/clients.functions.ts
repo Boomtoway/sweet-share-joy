@@ -144,8 +144,32 @@ export const createClient = createServerFn({ method: "POST" })
       throw new Error(`Profile setup failed: ${(e as Error).message}`);
     }
 
-    return { id: userId, workspace_id: workspaceId, invite_sent: inviteSent };
+    // 4) Auto-create subscription for the client based on selected plan.
+    const planDefaults: Record<string, { price: number; bots: number | null; msgs: number | null }> = {
+      starter: { price: 9900, bots: 1, msgs: 500 },
+      growth: { price: 19900, bots: 3, msgs: 3000 },
+      pro: { price: 49900, bots: null, msgs: null },
+    };
+    const subPlan = data.plan === "pro" ? "agency" : data.plan;
+    const def = planDefaults[data.plan];
+    const { error: subErr } = await supabaseAdmin.from("subscriptions").insert({
+      client_id: userId,
+      plan: subPlan,
+      status: "active",
+      price_lkr: def.price,
+      start_date: new Date().toISOString(),
+      expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      max_bots: def.bots,
+      max_messages: def.msgs,
+    });
+    if (subErr) {
+      // Non-fatal: log but don't roll back client. Admin can add a sub manually.
+      console.error("Subscription auto-create failed:", subErr.message);
+    }
+
+    return { id: userId, workspace_id: workspaceId, invite_sent: inviteSent, subscription_created: !subErr };
   });
+
 
 const resetPasswordSchema = z.object({
   id: z.string().uuid(),
