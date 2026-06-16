@@ -552,20 +552,51 @@ async function generateAndSend(args: {
       contact_id: contact.id,
     });
 
-    // Auto-create lead
+    // Auto-create lead + auto stage detection from inbound text
     const { data: existingLead } = await supabaseAdmin
       .from("leads")
-      .select("id")
+      .select("id, stage")
       .eq("contact_id", contact.id)
       .maybeSingle();
+    let currentLead: any = existingLead;
     if (!existingLead) {
-      await supabaseAdmin.from("leads").insert({
+      const ins = await supabaseAdmin.from("leads").insert({
         workspace_id: workspaceId,
         contact_id: contact.id,
+        name: contact.name ?? contact.phone ?? null,
+        phone: contact.phone ?? contact.whatsapp_number ?? null,
         source: "whatsapp",
         stage: "new",
-      } as any);
+      } as any).select("id, stage").single();
+      currentLead = ins.data;
     }
+
+    // Inbound keyword -> stage rules. Won/Lost only auto-apply when not already terminal.
+    try {
+      const lower = inboundBody.toLowerCase();
+      const STAGE_ORDER: Record<string, number> = { new: 0, contacted: 1, qualified: 2, interested: 3, appointment_booked: 4, proposal: 5, negotiation: 6, won: 7, lost: 7 };
+      const rules: Array<{ stage: string; test: RegExp }> = [
+        { stage: "won", test: /\b(paid|payment\s*(done|received|sent|made)|transferred|deposited|just\s*paid|i\s*paid)\b/i },
+        { stage: "lost", test: /\b(not\s*interested|don'?t\s*need|cancel(?:led)?|no\s*thanks?|နှူ|epa|එපා|வேண்டாம்)\b/i },
+        { stage: "negotiation", test: /\b(discount|negotiate|lower\s*price|reduce|cheaper|best\s*price|final\s*price)\b/i },
+        { stage: "interested", test: /\b(price|cost|how\s*much|rate|charges?|fee|quote|quotation|pricing|මිල|ගණන|விலை)\b/i },
+      ];
+      const matchedRule = rules.find((r) => r.test.test(lower));
+      if (matchedRule && currentLead) {
+        const cur = currentLead.stage ?? "new";
+        const isTerminal = cur === "won" || cur === "lost";
+        const next = matchedRule.stage;
+        const shouldAdvance = !isTerminal && (next === "won" || next === "lost" || (STAGE_ORDER[next] ?? 0) > (STAGE_ORDER[cur] ?? 0));
+        if (shouldAdvance) {
+          await supabaseAdmin.from("leads").update({ stage: next } as any).eq("id", currentLead.id);
+          await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_AUTODETECT", { lead_id: currentLead.id, from: cur, to: next, trigger: "inbound_keyword" });
+          currentLead.stage = next;
+        }
+      }
+    } catch (e: any) {
+      await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_DETECT_FAILED", { error: e?.message }, "warn");
+    }
+
 
     // ---- Risk gates ----
     const blocked: string[] = [];
