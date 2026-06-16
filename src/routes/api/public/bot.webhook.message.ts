@@ -552,23 +552,36 @@ async function generateAndSend(args: {
       contact_id: contact.id,
     });
 
-    // Auto-create lead + auto stage detection from inbound text
+    // Auto-create / update lead with name, phone, last message, service interest
     const { data: existingLead } = await supabaseAdmin
       .from("leads")
-      .select("id, stage")
+      .select("id, stage, name, phone, service_interest, source")
       .eq("contact_id", contact.id)
       .maybeSingle();
+    const leadName = contact.name ?? contact.phone ?? contact.whatsapp_number ?? fromPhone ?? null;
+    const leadPhone = contact.phone ?? contact.whatsapp_number ?? contact.sender_number ?? fromPhone ?? null;
+    const serviceMatch = inboundBody?.toLowerCase().match(/\b(website|web\s*site|app|mobile\s*app|seo|marketing|social\s*media|ads?|facebook|instagram|whatsapp\s*bot|chatbot|design|logo|branding|ecommerce|e-commerce)\b/);
+    const serviceInterest = serviceMatch?.[1] ?? null;
     let currentLead: any = existingLead;
     if (!existingLead) {
       const ins = await supabaseAdmin.from("leads").insert({
         workspace_id: workspaceId,
         contact_id: contact.id,
-        name: contact.name ?? contact.phone ?? null,
-        phone: contact.phone ?? contact.whatsapp_number ?? null,
+        name: leadName,
+        phone: leadPhone,
         source: "whatsapp",
         stage: "new",
+        service_interest: serviceInterest,
+        last_message: inboundBody?.slice(0, 500) ?? null,
       } as any).select("id, stage").single();
       currentLead = ins.data;
+    } else {
+      const patch: any = { last_message: inboundBody?.slice(0, 500) ?? null };
+      if (!existingLead.name && leadName) patch.name = leadName;
+      if (!existingLead.phone && leadPhone) patch.phone = leadPhone;
+      if (!existingLead.source) patch.source = "whatsapp";
+      if (!existingLead.service_interest && serviceInterest) patch.service_interest = serviceInterest;
+      await supabaseAdmin.from("leads").update(patch).eq("id", existingLead.id);
     }
 
     // Inbound keyword -> stage rules. Won/Lost only auto-apply when not already terminal.

@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2 } from "lucide-react";
+import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { syncConversationsToCrm } from "@/lib/crm/crm.functions";
 
 export const Route = createFileRoute("/_authenticated/crm")({
   component: CrmPage,
@@ -41,6 +43,7 @@ interface Lead {
   service_interest: string | null;
   source: string | null;
   notes: string | null;
+  last_message: string | null;
   appointment_date: string | null;
   follow_up_date: string | null;
   stage_changed_at: string | null;
@@ -69,6 +72,8 @@ function CrmPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Lead | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const syncFn = useServerFn(syncConversationsToCrm);
 
   useEffect(() => {
     (async () => {
@@ -166,6 +171,26 @@ function CrmPage() {
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input className="pl-8 w-72" placeholder="Search name, phone, notes…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={syncing}
+          onClick={async () => {
+            setSyncing(true);
+            try {
+              const r = await syncFn();
+              toast.success(`Synced: ${r.created} new, ${r.updated} updated, ${r.removed} cleaned`);
+              if (workspaceId) await load(workspaceId);
+            } catch (e: any) {
+              toast.error(e?.message ?? "Sync failed");
+            } finally {
+              setSyncing(false);
+            }
+          }}
+        >
+          {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+          Sync Conversations
+        </Button>
         <div className="ml-auto text-xs text-muted-foreground">
           Drag cards between columns. Stages auto-detect from AI conversations.
         </div>
@@ -206,11 +231,12 @@ function CrmPage() {
                         onClick={() => setActive(l)}
                         className="cursor-grab rounded-md border bg-card p-3 shadow-sm hover:border-primary transition-colors">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="font-medium text-sm truncate">{l.name || l.phone || "Untitled"}</div>
+                          <div className="font-medium text-sm truncate">{l.name || l.phone || l.business_name || "Lead"}</div>
                           {l.value > 0 && <Badge variant="outline" className="shrink-0">{fmtCurrency(Number(l.value))}</Badge>}
                         </div>
                         {l.business_name && <div className="text-xs text-muted-foreground truncate">{l.business_name}</div>}
-                        {l.service_interest && <div className="text-xs text-muted-foreground truncate mt-0.5">{l.service_interest}</div>}
+                        {l.service_interest && <div className="text-xs text-muted-foreground truncate mt-0.5">📌 {l.service_interest}</div>}
+                        {l.last_message && <div className="text-xs text-muted-foreground italic truncate mt-1">"{l.last_message}"</div>}
                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                           <span className="truncate">{l.phone ?? "—"}</span>
                           {l.follow_up_date && <span className="ml-2 shrink-0">📅 {fmtDate(l.follow_up_date)}</span>}
