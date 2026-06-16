@@ -924,6 +924,75 @@ export type Database = {
           },
         ]
       }
+      payment_requests: {
+        Row: {
+          amount: number
+          bank_name: string
+          client_id: string
+          created_at: string
+          id: string
+          note: string | null
+          reference_number: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          slip_path: string
+          status: Database["public"]["Enums"]["payment_request_status"]
+          subscription_id: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          amount: number
+          bank_name: string
+          client_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          reference_number: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slip_path: string
+          status?: Database["public"]["Enums"]["payment_request_status"]
+          subscription_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          amount?: number
+          bank_name?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          reference_number?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          slip_path?: string
+          status?: Database["public"]["Enums"]["payment_request_status"]
+          subscription_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_requests_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_requests_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_slips: {
         Row: {
           amount: number | null
@@ -1345,6 +1414,7 @@ export type Database = {
       message_delivery_status: "pending" | "sent" | "delivered" | "failed"
       message_direction: "inbound" | "outbound"
       message_sender: "contact" | "ai" | "human" | "system"
+      payment_request_status: "pending" | "approved" | "rejected"
       risk_severity: "low" | "medium" | "high" | "critical"
       subscription_plan: "starter" | "growth" | "agency"
       subscription_status: "active" | "expired" | "cancelled"
@@ -1503,6 +1573,7 @@ export const Constants = {
       message_delivery_status: ["pending", "sent", "delivered", "failed"],
       message_direction: ["inbound", "outbound"],
       message_sender: ["contact", "ai", "human", "system"],
+      payment_request_status: ["pending", "approved", "rejected"],
       risk_severity: ["low", "medium", "high", "critical"],
       subscription_plan: ["starter", "growth", "agency"],
       subscription_status: ["active", "expired", "cancelled"],
