@@ -19,6 +19,7 @@ import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/r
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
+import { Route as AuthenticatedLeadFollowupsRouteImport } from './routes/_authenticated/lead-followups'
 import { Route as AuthenticatedInstagramRouteImport } from './routes/_authenticated/instagram'
 import { Route as AuthenticatedHumanTakeoverRouteImport } from './routes/_authenticated/human-takeover'
 import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/debug'
@@ -84,6 +85,12 @@ const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLeadFollowupsRoute =
+  AuthenticatedLeadFollowupsRouteImport.update({
+    id: '/lead-followups',
+    path: '/lead-followups',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedInstagramRoute = AuthenticatedInstagramRouteImport.update({
   id: '/instagram',
   path: '/instagram',
@@ -181,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/debug': typeof AuthenticatedDebugRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -207,6 +215,7 @@ export interface FileRoutesByTo {
   '/debug': typeof AuthenticatedDebugRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -235,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/debug': typeof AuthenticatedDebugRoute
   '/_authenticated/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/_authenticated/instagram': typeof AuthenticatedInstagramRoute
+  '/_authenticated/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/human-takeover'
     | '/instagram'
+    | '/lead-followups'
     | '/leads'
     | '/messenger'
     | '/reply-rules'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/human-takeover'
     | '/instagram'
+    | '/lead-followups'
     | '/leads'
     | '/messenger'
     | '/reply-rules'
@@ -316,6 +328,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debug'
     | '/_authenticated/human-takeover'
     | '/_authenticated/instagram'
+    | '/_authenticated/lead-followups'
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
     | '/_authenticated/reply-rules'
@@ -411,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lead-followups': {
+      id: '/_authenticated/lead-followups'
+      path: '/lead-followups'
+      fullPath: '/lead-followups'
+      preLoaderRoute: typeof AuthenticatedLeadFollowupsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/instagram': {
@@ -532,6 +552,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDebugRoute: typeof AuthenticatedDebugRoute
   AuthenticatedHumanTakeoverRoute: typeof AuthenticatedHumanTakeoverRoute
   AuthenticatedInstagramRoute: typeof AuthenticatedInstagramRoute
+  AuthenticatedLeadFollowupsRoute: typeof AuthenticatedLeadFollowupsRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
@@ -552,6 +573,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDebugRoute: AuthenticatedDebugRoute,
   AuthenticatedHumanTakeoverRoute: AuthenticatedHumanTakeoverRoute,
   AuthenticatedInstagramRoute: AuthenticatedInstagramRoute,
+  AuthenticatedLeadFollowupsRoute: AuthenticatedLeadFollowupsRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
