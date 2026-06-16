@@ -606,6 +606,7 @@ export type Database = {
           email: string | null
           follow_up_date: string | null
           id: string
+          last_message: string | null
           lead_score: number
           name: string | null
           notes: string | null
@@ -630,6 +631,7 @@ export type Database = {
           email?: string | null
           follow_up_date?: string | null
           id?: string
+          last_message?: string | null
           lead_score?: number
           name?: string | null
           notes?: string | null
@@ -654,6 +656,7 @@ export type Database = {
           email?: string | null
           follow_up_date?: string | null
           id?: string
+          last_message?: string | null
           lead_score?: number
           name?: string | null
           notes?: string | null
