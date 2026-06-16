@@ -4,9 +4,9 @@
 export const VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
 export const VPS_TOKEN = "startapplk-bot-12345";
 
-/** Strict Sri Lankan WhatsApp validator: must be 947xxxxxxxx, no symbols. */
+/** Strict Sri Lankan mobile WhatsApp validator: must be 947xxxxxxxx, no symbols. */
 export function isValidWhatsAppNumber(n: string): boolean {
-  return /^94\d{9}$/.test(n);
+  return /^947\d{8}$/.test(n);
 }
 
 /** Normalize WhatsApp recipient: strip JID suffix, keep digits, leading 0 -> 94. */
