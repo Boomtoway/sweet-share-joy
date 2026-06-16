@@ -275,29 +275,49 @@ function BillingPage() {
                   Upload Payment Slip
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  type="number"
-                  placeholder="Amount (LKR)"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-                <Input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f);
-                  }}
-                  disabled={uploading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Accepted: JPG, PNG, PDF. Stored securely.
-                </p>
+              <CardContent>
+                <form onSubmit={handleSubmitPayment} className="space-y-3">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Amount (LKR)"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                  <Input
+                    placeholder="Reference number"
+                    value={referenceNumber}
+                    onChange={(e) => setReferenceNumber(e.target.value)}
+                    maxLength={100}
+                    required
+                  />
+                  <Input
+                    placeholder="Bank name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    maxLength={100}
+                    required
+                  />
+                  <Input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Accepted: JPG, PNG, PDF. Stored securely.
+                  </p>
+                  <Button type="submit" className="w-full" disabled={uploading}>
+                    {uploading ? "Uploading…" : "Submit Payment Slip"}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>
+
 
           <Card>
             <CardHeader>
