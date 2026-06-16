@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw, Wrench } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncConversationsToCrm, repairCrmData } from "@/lib/crm/crm.functions";
@@ -49,6 +50,8 @@ interface Lead {
   follow_up_date: string | null;
   stage_changed_at: string | null;
   value: number;
+  deal_value: number | null;
+  won_date: string | null;
   lead_score: number | null;
   ai_summary: string | null;
   created_at: string;
@@ -140,13 +143,41 @@ function CrmPage() {
     return map;
   }, [filtered]);
 
+  const [wonPrompt, setWonPrompt] = useState<{ id: string; prevStage: Stage; dealValue: string; service: string } | null>(null);
+
+  const applyStage = async (id: string, stage: Stage, extra: Record<string, any> = {}) => {
+    const prev = leads.find((l) => l.id === id);
+    if (!prev) return;
+    setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage, ...extra } : l));
+    const { error } = await supabase.from("leads").update({ stage, ...extra }).eq("id", id);
+    if (error) { toast.error(error.message); setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage: prev.stage } : l)); }
+    else toast.success(`Moved to ${STAGES.find((s) => s.id === stage)?.label}`);
+  };
+
   const moveStage = async (id: string, stage: Stage) => {
     const prev = leads.find((l) => l.id === id);
     if (!prev || prev.stage === stage) return;
-    setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage } : l));
-    const { error } = await supabase.from("leads").update({ stage }).eq("id", id);
-    if (error) { toast.error(error.message); setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage: prev.stage } : l)); }
-    else toast.success(`Moved to ${STAGES.find((s) => s.id === stage)?.label}`);
+    if (stage === "won") {
+      setWonPrompt({
+        id, prevStage: prev.stage,
+        dealValue: String(prev.deal_value ?? prev.value ?? ""),
+        service: prev.service_interest ?? "",
+      });
+      return;
+    }
+    await applyStage(id, stage);
+  };
+
+  const confirmWon = async () => {
+    if (!wonPrompt) return;
+    const v = Number(wonPrompt.dealValue) || 0;
+    await applyStage(wonPrompt.id, "won", {
+      deal_value: v,
+      value: v,
+      won_date: new Date().toISOString(),
+      service_interest: wonPrompt.service || null,
+    });
+    setWonPrompt(null);
   };
 
   const saveActive = async (patch: Partial<Lead>) => {
@@ -172,10 +203,11 @@ function CrmPage() {
   const won = byStage.won.length;
   const lost = byStage.lost.length;
   const decided = won + lost;
-  const conversion = decided ? Math.round((won / decided) * 100) : 0;
-  const revenueWon = byStage.won.reduce((s, l) => s + Number(l.value ?? 0), 0);
+  const conversion = total ? Math.round((won / total) * 100) : 0;
+  const revenueWon = byStage.won.reduce((s, l) => s + Number(l.deal_value ?? l.value ?? 0), 0);
+  const PIPELINE_STAGES: Stage[] = ["interested", "appointment_booked", "proposal", "negotiation"];
   const pipelineValue = leads
-    .filter((l) => l.stage !== "won" && l.stage !== "lost")
+    .filter((l) => PIPELINE_STAGES.includes(l.stage))
     .reduce((s, l) => s + Number(l.value ?? 0), 0);
   const dueSoon = leads.filter((l) => l.follow_up_date && new Date(l.follow_up_date).getTime() <= Date.now() + 86400000).length;
 
@@ -183,7 +215,7 @@ function CrmPage() {
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard icon={<Target className="h-4 w-4" />} label="Total leads" value={String(total)} />
-        <StatCard icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Conversion" value={`${conversion}%`} hint={`${won} won / ${decided} closed`} />
+        <StatCard icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Conversion" value={`${conversion}%`} hint={`${won} won / ${total} total`} />
         <StatCard icon={<DollarSign className="h-4 w-4 text-emerald-600" />} label="Revenue won" value={fmtCurrency(revenueWon)} />
         <StatCard icon={<DollarSign className="h-4 w-4 text-amber-600" />} label="Pipeline value" value={fmtCurrency(pipelineValue)} />
         <StatCard icon={<CalendarClock className="h-4 w-4 text-violet-600" />} label="Follow-ups due ≤24h" value={String(dueSoon)} />
@@ -333,7 +365,11 @@ function CrmPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Stage">
-                  <Select value={active.stage} onValueChange={(v) => saveActive({ stage: v as Stage })}>
+                  <Select value={active.stage} onValueChange={(v) => {
+                    const s = v as Stage;
+                    if (s === "won") { moveStage(active.id, s); setActive(null); }
+                    else saveActive({ stage: s });
+                  }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{STAGES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
                   </Select>
@@ -380,6 +416,29 @@ function CrmPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!wonPrompt} onOpenChange={(o) => !o && setWonPrompt(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>🎉 Mark as Won</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Deal value (LKR)</Label>
+              <Input type="number" min={0} autoFocus
+                value={wonPrompt?.dealValue ?? ""}
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, dealValue: e.target.value } : p)} />
+            </div>
+            <div>
+              <Label className="text-xs">Service</Label>
+              <Input value={wonPrompt?.service ?? ""}
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, service: e.target.value } : p)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setWonPrompt(null)}>Cancel</Button>
+            <Button onClick={confirmWon}>Save Won deal</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

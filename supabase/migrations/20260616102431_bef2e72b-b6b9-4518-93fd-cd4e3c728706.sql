@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS deal_value numeric, ADD COLUMN IF NOT EXISTS won_date timestamptz;
