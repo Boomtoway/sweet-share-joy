@@ -73,7 +73,9 @@ function CrmPage() {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Lead | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const syncFn = useServerFn(syncConversationsToCrm);
+  const repairFn = useServerFn(repairCrmData);
 
   useEffect(() => {
     (async () => {
