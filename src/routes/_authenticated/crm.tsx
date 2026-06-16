@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw, Wrench } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { syncConversationsToCrm } from "@/lib/crm/crm.functions";
+import { syncConversationsToCrm, repairCrmData } from "@/lib/crm/crm.functions";
 
 export const Route = createFileRoute("/_authenticated/crm")({
   component: CrmPage,
