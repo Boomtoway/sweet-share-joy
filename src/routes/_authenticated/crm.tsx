@@ -186,6 +186,7 @@ function CrmPage() {
             setSyncing(true);
             try {
               const r = await syncFn();
+              console.log("CRM_SYNC", r);
               toast.success(`Synced: ${r.created} new, ${r.updated} updated, ${r.removed} cleaned`);
               if (workspaceId) await load(workspaceId);
             } catch (e: any) {
