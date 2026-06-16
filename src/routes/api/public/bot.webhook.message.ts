@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { sendViaVps, pickRecipient, normalizeRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
+import { sendViaVps, extractWhatsappSendNumber, normalizeRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -702,15 +702,25 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Shared VPS send — same as manual "Send" button.
-    // Recipient priority matches manual send: contact.phone → contact.remote_jid → conversation.remote_jid → inbound jid.
-    const rawRecipient =
-      contact?.phone || contact?.remote_jid || conversation.remote_jid || remoteJid || "";
-    const to = normalizeRecipient(rawRecipient);
-    console.log("SEND_TO_NUMBER", to);
+    // Exact AI auto-reply send target assignment:
+    // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
+    // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
+    // and message-history recipients are never used as WhatsApp numbers.
+    const originalPhone = contact?.phone ?? fromPhone ?? "";
+    const remoteJidForSend = remoteJid || conversation.remote_jid || contact?.remote_jid || "";
+    const extractedWhatsappNumber = extractWhatsappSendNumber(remoteJid, conversation.remote_jid, contact?.remote_jid, fromPhone, contact?.phone);
+    const to = extractedWhatsappNumber;
+    console.log("SEND_TO_NUMBER", {
+      original_phone: originalPhone,
+      remote_jid: remoteJidForSend,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
+    });
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
-      to,
-      raw_recipient: rawRecipient,
+      original_phone: originalPhone,
+      remote_jid: remoteJidForSend,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact?.remote_jid,
       contact_phone: contact?.phone,
@@ -725,7 +735,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         "VPS_ERROR",
-        { error: err, to, raw_recipient: rawRecipient, message_id: outboundMsg?.id },
+        { error: err, original_phone: originalPhone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(err);
