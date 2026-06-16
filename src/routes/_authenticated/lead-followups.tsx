@@ -50,6 +50,23 @@ function FollowupsPage() {
   const listFn = useServerFn(listFollowups);
   const sendFn = useServerFn(sendFollowupNow);
   const stopFn = useServerFn(stopFollowups);
+  const getTestFn = useServerFn(getFollowupTestMode);
+  const setTestFn = useServerFn(setFollowupTestMode);
+
+  const { data: testModeData } = useQuery<{ test_mode: boolean }>({
+    queryKey: ["followup-test-mode"],
+    queryFn: () => getTestFn(),
+  });
+  const testMode = !!testModeData?.test_mode;
+
+  const toggleTest = useMutation({
+    mutationFn: (v: boolean) => setTestFn({ data: { test_mode: v } }),
+    onSuccess: (r: any) => {
+      toast.success(`Test mode ${r?.test_mode ? "ON (2/5/10 min)" : "OFF (1/3/7 days)"}`);
+      qc.invalidateQueries({ queryKey: ["followup-test-mode"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
   const qc = useQueryClient();
   const [tab, setTab] = useState("all");
 
