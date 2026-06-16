@@ -33,6 +33,7 @@ import { Route as AuthenticatedConversationsRouteImport } from './routes/_authen
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedBusinessKnowledgeRouteImport } from './routes/_authenticated/business-knowledge'
+import { Route as AuthenticatedBillingRouteImport } from './routes/_authenticated/billing'
 import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authenticated/appointments'
 import { Route as AuthenticatedApiSettingsRouteImport } from './routes/_authenticated/api-settings'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
@@ -169,6 +170,11 @@ const AuthenticatedBusinessKnowledgeRoute =
     path: '/business-knowledge',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBillingRoute = AuthenticatedBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppointmentsRoute =
   AuthenticatedAppointmentsRouteImport.update({
     id: '/appointments',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/api-settings': typeof AuthenticatedApiSettingsRoute
   '/appointments': typeof AuthenticatedAppointmentsRoute
+  '/billing': typeof AuthenticatedBillingRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/api-settings': typeof AuthenticatedApiSettingsRoute
   '/appointments': typeof AuthenticatedAppointmentsRoute
+  '/billing': typeof AuthenticatedBillingRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/clients': typeof AuthenticatedClientsRoute
@@ -305,6 +313,7 @@ export interface FileRoutesById {
   '/_authenticated/ai-settings': typeof AuthenticatedAiSettingsRoute
   '/_authenticated/api-settings': typeof AuthenticatedApiSettingsRoute
   '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
+  '/_authenticated/billing': typeof AuthenticatedBillingRoute
   '/_authenticated/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/_authenticated/channels': typeof AuthenticatedChannelsRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/ai-settings'
     | '/api-settings'
     | '/appointments'
+    | '/billing'
     | '/business-knowledge'
     | '/channels'
     | '/clients'
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/ai-settings'
     | '/api-settings'
     | '/appointments'
+    | '/billing'
     | '/business-knowledge'
     | '/channels'
     | '/clients'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ai-settings'
     | '/_authenticated/api-settings'
     | '/_authenticated/appointments'
+    | '/_authenticated/billing'
     | '/_authenticated/business-knowledge'
     | '/_authenticated/channels'
     | '/_authenticated/clients'
@@ -626,6 +638,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBusinessKnowledgeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/billing': {
+      id: '/_authenticated/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AuthenticatedBillingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/appointments': {
       id: '/_authenticated/appointments'
       path: '/appointments'
@@ -703,6 +722,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiSettingsRoute: typeof AuthenticatedAiSettingsRoute
   AuthenticatedApiSettingsRoute: typeof AuthenticatedApiSettingsRoute
   AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRoute
+  AuthenticatedBillingRoute: typeof AuthenticatedBillingRoute
   AuthenticatedBusinessKnowledgeRoute: typeof AuthenticatedBusinessKnowledgeRoute
   AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
@@ -730,6 +750,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAiSettingsRoute: AuthenticatedAiSettingsRoute,
   AuthenticatedApiSettingsRoute: AuthenticatedApiSettingsRoute,
   AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRoute,
+  AuthenticatedBillingRoute: AuthenticatedBillingRoute,
   AuthenticatedBusinessKnowledgeRoute: AuthenticatedBusinessKnowledgeRoute,
   AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRoute,

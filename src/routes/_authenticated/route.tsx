@@ -16,6 +16,7 @@ const CLIENT_ALLOWED = new Set([
   "/invoices",
   "/revenue",
   "/settings",
+  "/billing",
   "/subscription-expired",
 ]);
 
