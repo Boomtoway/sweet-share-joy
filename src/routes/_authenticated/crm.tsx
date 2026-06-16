@@ -72,6 +72,8 @@ function CrmPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Lead | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const syncFn = useServerFn(syncConversationsToCrm);
 
   useEffect(() => {
     (async () => {
