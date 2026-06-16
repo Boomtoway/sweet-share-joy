@@ -49,7 +49,23 @@ interface Lead {
   follow_up_date: string | null;
   stage_changed_at: string | null;
   value: number;
+  lead_score: number | null;
+  ai_summary: string | null;
   created_at: string;
+}
+
+function scoreColor(s: number) {
+  if (s >= 80) return "bg-emerald-600 text-white";
+  if (s >= 50) return "bg-amber-500 text-white";
+  if (s >= 20) return "bg-sky-500 text-white";
+  return "bg-slate-400 text-white";
+}
+
+function scoreLabel(s: number) {
+  if (s >= 80) return "Hot";
+  if (s >= 50) return "Warm";
+  if (s >= 20) return "Cool";
+  return "Cold";
 }
 
 function fmtCurrency(n: number) {
