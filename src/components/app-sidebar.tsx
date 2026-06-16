@@ -15,6 +15,7 @@ import {
   Server,
   Settings,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,6 +56,7 @@ const groups = [
     label: "Operations",
     items: [
       { title: "Conversations", url: "/conversations", icon: Inbox },
+      { title: "Appointments", url: "/appointments", icon: Calendar },
       { title: "Leads", url: "/leads", icon: Users },
       { title: "Human Takeover", url: "/human-takeover", icon: UserCheck },
       { title: "Risk Control", url: "/risk", icon: ShieldAlert },

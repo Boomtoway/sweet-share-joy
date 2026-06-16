@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendManualWhatsAppMessage, testVpsSend } from "@/lib/vps/bot.functions";
+import { createAppointment } from "@/lib/appointments/appointments.functions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -283,10 +286,18 @@ function ConversationsPage() {
         </Card>
 
         <Card className="flex flex-col min-h-0">
-          <CardHeader className="py-3">
+          <CardHeader className="py-3 flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-sm">
               {active ? (active.contact?.name ?? active.contact?.phone ?? "Conversation") : "Select a conversation"}
             </CardTitle>
+            {active && (
+              <CreateAppointmentDialog
+                conversationId={active.id}
+                contactId={active.contact_id}
+                defaultName={active.contact?.name ?? ""}
+                defaultPhone={active.contact?.phone ?? ""}
+              />
+            )}
           </CardHeader>
           <CardContent className="flex-1 min-h-0 flex flex-col p-0">
             <ScrollArea className="flex-1 p-4">
@@ -427,5 +438,110 @@ function TestVpsSendButton() {
         </pre>
       )}
     </div>
+  );
+}
+
+function CreateAppointmentDialog({
+  conversationId,
+  contactId,
+  defaultName,
+  defaultPhone,
+}: {
+  conversationId: string;
+  contactId: string | null;
+  defaultName: string;
+  defaultPhone: string;
+}) {
+  const createFn = useServerFn(createAppointment);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState(defaultName);
+  const [phone, setPhone] = useState(defaultPhone);
+  const [service, setService] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    setName(defaultName);
+    setPhone(defaultPhone);
+  }, [defaultName, defaultPhone]);
+
+  const submit = async () => {
+    if (!name || !phone || !date || !time) {
+      toast.error("Name, phone, date and time are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createFn({
+        data: {
+          conversation_id: conversationId,
+          contact_id: contactId,
+          name,
+          phone,
+          service_needed: service || null,
+          appointment_date: date,
+          appointment_time: time,
+          notes: notes || null,
+        },
+      });
+      toast.success("Appointment created");
+      setOpen(false);
+      setService(""); setDate(""); setTime(""); setNotes("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to create appointment");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <CalendarIcon className="h-3 w-3 mr-1" />Create Appointment
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create Appointment</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Phone</Label>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Service Needed</Label>
+            <Input value={service} onChange={(e) => setService(e.target.value)} placeholder="Demo, consultation…" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label>Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Time</Label>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label>Notes</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
+          <Button onClick={submit} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
