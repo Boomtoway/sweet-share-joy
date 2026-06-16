@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { sendViaVps, extractWhatsappSendNumber, normalizeRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
+import { sendViaVps, extractWhatsappSendNumber, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -728,7 +728,7 @@ async function generateAndSend(args: {
     });
 
     // Strict validation: must start with 94 AND be 10–15 digits.
-    const isValid = /^94\d{9,13}$/.test(to);
+    const isValid = /^947\d{8}$/.test(to);
     if (!to || !isValid) {
       const err = `Invalid WhatsApp number: ${to || "(empty)"}`;
       await logStep(
