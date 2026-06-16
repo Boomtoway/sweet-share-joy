@@ -44,6 +44,7 @@ function ClientsPage() {
   const create = useServerFn(createClientFn);
   const update = useServerFn(updateClient);
   const resetPw = useServerFn(resetClientPassword);
+  const invite = useServerFn(sendInviteEmail);
   const qc = useQueryClient();
 
   const clientsQ = useQuery({ queryKey: ["admin-clients"], queryFn: () => list(), enabled: role === "admin" });
