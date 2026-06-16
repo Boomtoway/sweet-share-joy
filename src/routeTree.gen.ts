@@ -30,6 +30,7 @@ import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authent
 import { Route as AuthenticatedApiSettingsRouteImport } from './routes/_authenticated/api-settings'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta.webhook'
+import { Route as ApiPublicHooksLeadFollowupsRouteImport } from './routes/api/public/hooks/lead-followups'
 import { Route as ApiPublicHooksAppointmentRemindersRouteImport } from './routes/api/public/hooks/appointment-reminders'
 import { Route as ApiPublicBotDebugRouteImport } from './routes/api/public/bot.debug'
 import { Route as ApiPublicBotWebhookMessageRouteImport } from './routes/api/public/bot.webhook.message'
@@ -143,6 +144,12 @@ const ApiPublicMetaWebhookRoute = ApiPublicMetaWebhookRouteImport.update({
   path: '/api/public/meta/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksLeadFollowupsRoute =
+  ApiPublicHooksLeadFollowupsRouteImport.update({
+    id: '/api/public/hooks/lead-followups',
+    path: '/api/public/hooks/lead-followups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAppointmentRemindersRoute =
   ApiPublicHooksAppointmentRemindersRouteImport.update({
     id: '/api/public/hooks/appointment-reminders',
@@ -183,6 +190,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -208,6 +216,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -235,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -262,6 +272,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesByTo: FileRoutesByTo
@@ -287,6 +298,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   id:
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
     | '/_authenticated/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesById: FileRoutesById
@@ -323,6 +336,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicBotDebugRoute: typeof ApiPublicBotDebugRoute
   ApiPublicHooksAppointmentRemindersRoute: typeof ApiPublicHooksAppointmentRemindersRoute
+  ApiPublicHooksLeadFollowupsRoute: typeof ApiPublicHooksLeadFollowupsRoute
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiPublicBotWebhookMessageRoute: typeof ApiPublicBotWebhookMessageRoute
 }
@@ -476,6 +490,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/lead-followups': {
+      id: '/api/public/hooks/lead-followups'
+      path: '/api/public/hooks/lead-followups'
+      fullPath: '/api/public/hooks/lead-followups'
+      preLoaderRoute: typeof ApiPublicHooksLeadFollowupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/appointment-reminders': {
       id: '/api/public/hooks/appointment-reminders'
       path: '/api/public/hooks/appointment-reminders'
@@ -550,6 +571,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBotDebugRoute: ApiPublicBotDebugRoute,
   ApiPublicHooksAppointmentRemindersRoute:
     ApiPublicHooksAppointmentRemindersRoute,
+  ApiPublicHooksLeadFollowupsRoute: ApiPublicHooksLeadFollowupsRoute,
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiPublicBotWebhookMessageRoute: ApiPublicBotWebhookMessageRoute,
 }
