@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWorkflowRouteImport } from './routes/_authenticated/workflow'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
 import { Route as AuthenticatedSubscriptionsRouteImport } from './routes/_authenticated/subscriptions'
@@ -60,6 +61,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedWorkflowRoute = AuthenticatedWorkflowRouteImport.update({
+  id: '/workflow',
+  path: '/workflow',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedWhatsappRoute = AuthenticatedWhatsappRouteImport.update({
   id: '/whatsapp',
@@ -276,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/workflow': typeof AuthenticatedWorkflowRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
   '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
@@ -314,6 +321,7 @@ export interface FileRoutesByTo {
   '/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/workflow': typeof AuthenticatedWorkflowRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
   '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
@@ -354,6 +362,7 @@ export interface FileRoutesById {
   '/_authenticated/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
+  '/_authenticated/workflow': typeof AuthenticatedWorkflowRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
   '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
@@ -394,6 +403,7 @@ export interface FileRouteTypes {
     | '/subscriptions'
     | '/vps'
     | '/whatsapp'
+    | '/workflow'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
     | '/api/public/hooks/expire-subscriptions'
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/subscriptions'
     | '/vps'
     | '/whatsapp'
+    | '/workflow'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
     | '/api/public/hooks/expire-subscriptions'
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/_authenticated/subscriptions'
     | '/_authenticated/vps'
     | '/_authenticated/whatsapp'
+    | '/_authenticated/workflow'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
     | '/api/public/hooks/expire-subscriptions'
@@ -515,6 +527,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/workflow': {
+      id: '/_authenticated/workflow'
+      path: '/workflow'
+      fullPath: '/workflow'
+      preLoaderRoute: typeof AuthenticatedWorkflowRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/whatsapp': {
       id: '/_authenticated/whatsapp'
@@ -785,6 +804,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSubscriptionsRoute: typeof AuthenticatedSubscriptionsRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
+  AuthenticatedWorkflowRoute: typeof AuthenticatedWorkflowRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -815,6 +835,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSubscriptionsRoute: AuthenticatedSubscriptionsRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
+  AuthenticatedWorkflowRoute: AuthenticatedWorkflowRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

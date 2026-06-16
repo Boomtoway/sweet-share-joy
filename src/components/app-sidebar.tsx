@@ -46,7 +46,10 @@ type Group = { label: string; items: Item[] };
 const groups: Group[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
+    items: [
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Workflow", url: "/workflow", icon: Sparkles },
+    ],
   },
   {
     label: "Channels",
