@@ -603,6 +603,7 @@ export type Database = {
           business_name: string | null
           contact_id: string | null
           created_at: string
+          deal_value: number | null
           email: string | null
           follow_up_date: string | null
           id: string
@@ -618,6 +619,7 @@ export type Database = {
           status: string
           updated_at: string
           value: number
+          won_date: string | null
           workspace_id: string
         }
         Insert: {
@@ -628,6 +630,7 @@ export type Database = {
           business_name?: string | null
           contact_id?: string | null
           created_at?: string
+          deal_value?: number | null
           email?: string | null
           follow_up_date?: string | null
           id?: string
@@ -643,6 +646,7 @@ export type Database = {
           status?: string
           updated_at?: string
           value?: number
+          won_date?: string | null
           workspace_id: string
         }
         Update: {
@@ -653,6 +657,7 @@ export type Database = {
           business_name?: string | null
           contact_id?: string | null
           created_at?: string
+          deal_value?: number | null
           email?: string | null
           follow_up_date?: string | null
           id?: string
@@ -668,6 +673,7 @@ export type Database = {
           status?: string
           updated_at?: string
           value?: number
+          won_date?: string | null
           workspace_id?: string
         }
         Relationships: [
