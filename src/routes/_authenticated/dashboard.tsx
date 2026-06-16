@@ -128,7 +128,11 @@ function Dashboard() {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Live overview of your AI sales operations.</p>
       </div>
+
+      <SubscriptionWidget />
+
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+
         {cards.map((c) => (
           <StatCard key={c.title} {...c} />
         ))}
