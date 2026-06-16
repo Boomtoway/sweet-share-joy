@@ -11,9 +11,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw, Wrench } from "lucide-react";
+import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw, Wrench, FileText } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncConversationsToCrm, repairCrmData } from "@/lib/crm/crm.functions";
+import { createInvoiceFromLead } from "@/lib/invoices/invoices.functions";
+import { useNavigate } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/crm")({
   component: CrmPage,
@@ -411,6 +413,11 @@ function CrmPage() {
                     <a href={waLink(active.phone, `Hi ${active.name ?? "there"},`)} target="_blank" rel="noreferrer">
                       <MessageCircle className="h-4 w-4 mr-1" />Message on WhatsApp
                     </a>
+                  </Button>
+                )}
+                {active.stage === "won" && (
+                  <Button variant="default" onClick={() => createInvoice(active)}>
+                    <FileText className="h-4 w-4 mr-1" />Create Invoice
                   </Button>
                 )}
                 <Button variant="destructive" onClick={() => deleteLead(active.id)}>
