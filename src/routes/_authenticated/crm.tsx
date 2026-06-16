@@ -42,6 +42,7 @@ interface Lead {
   business_name: string | null;
   service_interest: string | null;
   source: string | null;
+  budget: string | null;
   notes: string | null;
   last_message: string | null;
   appointment_date: string | null;
@@ -102,7 +103,11 @@ function CrmPage() {
     if (!workspaceId) return;
     const ch = supabase.channel(`crm-leads-${workspaceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads", filter: `workspace_id=eq.${workspaceId}` },
-        () => load(workspaceId))
+        (payload) => {
+          const tag = payload.eventType === "INSERT" ? "CRM_CREATE" : payload.eventType === "UPDATE" ? "CRM_UPDATE" : "CRM_SYNC";
+          console.log(tag, payload.new ?? payload.old);
+          load(workspaceId);
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [workspaceId]);
@@ -181,6 +186,7 @@ function CrmPage() {
             setSyncing(true);
             try {
               const r = await syncFn();
+              console.log("CRM_SYNC", r);
               toast.success(`Synced: ${r.created} new, ${r.updated} updated, ${r.removed} cleaned`);
               if (workspaceId) await load(workspaceId);
             } catch (e: any) {
@@ -201,6 +207,7 @@ function CrmPage() {
             setRepairing(true);
             try {
               const r = await repairFn();
+              console.log("CRM_SYNC", r);
               toast.success(
                 `Repaired: ${r.names_updated} names, ${r.phones_updated} phones, ${r.last_messages_updated} messages · merged ${r.duplicates_removed} duplicates · removed ${r.empty_leads_deleted} empty`,
                 { duration: 6000 },
@@ -256,14 +263,16 @@ function CrmPage() {
                         onClick={() => setActive(l)}
                         className="cursor-grab rounded-md border bg-card p-3 shadow-sm hover:border-primary transition-colors">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="font-medium text-sm truncate">{l.name || l.phone || l.business_name || "Lead"}</div>
+                          <div className="font-medium text-sm truncate">{l.name || l.phone || l.business_name || "Unknown"}</div>
                           {l.value > 0 && <Badge variant="outline" className="shrink-0">{fmtCurrency(Number(l.value))}</Badge>}
                         </div>
-                        {l.business_name && <div className="text-xs text-muted-foreground truncate">{l.business_name}</div>}
+                        {l.phone && <div className="text-xs text-muted-foreground truncate">📞 {l.phone}</div>}
+                        {l.business_name && <div className="text-xs text-muted-foreground truncate">🏢 {l.business_name}</div>}
                         {l.service_interest && <div className="text-xs text-muted-foreground truncate mt-0.5">📌 {l.service_interest}</div>}
+                        {l.budget && <div className="text-xs text-emerald-600 truncate mt-0.5">💰 Budget: {l.budget}</div>}
                         {l.last_message && <div className="text-xs text-muted-foreground italic truncate mt-1">"{l.last_message}"</div>}
                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="truncate">{l.phone ?? "—"}</span>
+                          <span className="truncate">{l.source ?? "—"}</span>
                           {l.follow_up_date && <span className="ml-2 shrink-0">📅 {fmtDate(l.follow_up_date)}</span>}
                         </div>
                         {l.phone && (
@@ -297,6 +306,8 @@ function CrmPage() {
               </div>
               <Field label="Business name"><Input value={active.business_name ?? ""} onChange={(e) => saveActive({ business_name: e.target.value })} /></Field>
               <Field label="Service interest"><Input value={active.service_interest ?? ""} onChange={(e) => saveActive({ service_interest: e.target.value })} /></Field>
+              <Field label="Budget"><Input value={active.budget ?? ""} placeholder="e.g. LKR 50000" onChange={(e) => saveActive({ budget: e.target.value })} /></Field>
+
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Stage">
