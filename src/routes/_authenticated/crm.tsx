@@ -416,6 +416,29 @@ function CrmPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={!!wonPrompt} onOpenChange={(o) => !o && setWonPrompt(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>🎉 Mark as Won</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Deal value (LKR)</Label>
+              <Input type="number" min={0} autoFocus
+                value={wonPrompt?.dealValue ?? ""}
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, dealValue: e.target.value } : p)} />
+            </div>
+            <div>
+              <Label className="text-xs">Service</Label>
+              <Input value={wonPrompt?.service ?? ""}
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, service: e.target.value } : p)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setWonPrompt(null)}>Cancel</Button>
+            <Button onClick={confirmWon}>Save Won deal</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
