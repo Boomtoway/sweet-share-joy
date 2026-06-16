@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { sendViaVps, extractWhatsappSendNumber } from "@/lib/vps/send";
+import { tiersFor, followupMessage, type FollowupType } from "@/lib/followups/followups";
 
 async function workspaceId(context: any) {
   const { data: profile } = await context.supabase
