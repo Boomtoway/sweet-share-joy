@@ -1,7 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { sendViaVps, extractWhatsappSendNumber, pickRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "./send";
+import {
+  sendViaVps,
+  extractWhatsappSendNumber,
+  pickRecipient,
+  VPS_SEND_URL,
+  VPS_TOKEN,
+  getVpsResponseText,
+} from "./send";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -136,7 +143,15 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     );
     const to = extractedWhatsappNumber;
 
-    console.log("MANUAL_SEND_START", { conversation_id: conversation.id, contact_id: conversation.contact_id, client_to: data.to ?? null, phone, remote_jid: remoteJid, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to });
+    console.log("MANUAL_SEND_START", {
+      conversation_id: conversation.id,
+      contact_id: conversation.contact_id,
+      client_to: data.to ?? null,
+      phone,
+      remote_jid: remoteJid,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
+    });
     await log(context.supabase, workspaceId, "info", "MANUAL_SEND_START", {
       conversation_id: conversation.id,
       contact_id: conversation.contact_id,
@@ -146,7 +161,12 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       extracted_whatsapp_number: extractedWhatsappNumber,
       final_send_number: to,
     });
-    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_NUMBER", { contact_id: conversation.contact_id, phone, remote_jid: remoteJid, final_send_number: to });
+    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_NUMBER", {
+      contact_id: conversation.contact_id,
+      phone,
+      remote_jid: remoteJid,
+      final_send_number: to,
+    });
 
     if (!to) {
       await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
@@ -166,7 +186,13 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     const responseText = getVpsResponseText(result);
     const debugStr = `FINAL_SEND_NUMBER: ${to} | VPS_RESPONSE: ok ${result.ok} | HTTP ${result.status} ${responseText}`;
 
-    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", { contact_id: conversation.contact_id, phone, remote_jid: remoteJid, final_send_number: to, ok: result.ok });
+    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", {
+      contact_id: conversation.contact_id,
+      phone,
+      remote_jid: remoteJid,
+      final_send_number: to,
+      ok: result.ok,
+    });
 
     console.log("MANUAL_SEND_RESPONSE", { status: result.status, ok: result.ok, body: responseText });
     await log(context.supabase, workspaceId, result.ok ? "info" : "error", "MANUAL_SEND_RESPONSE", {
