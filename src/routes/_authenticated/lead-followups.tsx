@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Send, Loader2, StopCircle, FlaskConical } from "lucide-react";
+import { Send, Loader2, StopCircle, FlaskConical, PlayCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lead-followups")({
   component: FollowupsPage,
