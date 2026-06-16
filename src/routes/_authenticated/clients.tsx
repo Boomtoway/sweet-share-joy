@@ -8,6 +8,7 @@ import {
   updateClient,
   listWorkspaces,
   resetClientPassword,
+  sendInviteEmail,
 } from "@/lib/clients/clients.functions";
 import { useRole } from "@/hooks/use-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Users, KeyRound } from "lucide-react";
+import { Plus, Users, KeyRound, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   head: () => ({ meta: [{ title: "Clients — Admin" }] }),
