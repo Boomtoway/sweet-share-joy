@@ -30,6 +30,15 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { role, loading: roleLoading } = useRole();
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  useEffect(() => {
+    if (roleLoading || !role) return;
+    if (role === "client" && !CLIENT_ALLOWED.has(pathname)) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [role, roleLoading, pathname, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
