@@ -897,25 +897,37 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          business_name: string | null
           created_at: string
+          email: string | null
           full_name: string | null
           id: string
+          plan: Database["public"]["Enums"]["client_plan"]
+          status: Database["public"]["Enums"]["client_status"]
           updated_at: string
           workspace_id: string | null
         }
         Insert: {
           avatar_url?: string | null
+          business_name?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id: string
+          plan?: Database["public"]["Enums"]["client_plan"]
+          status?: Database["public"]["Enums"]["client_status"]
           updated_at?: string
           workspace_id?: string | null
         }
         Update: {
           avatar_url?: string | null
+          business_name?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string | null
           id?: string
+          plan?: Database["public"]["Enums"]["client_plan"]
+          status?: Database["public"]["Enums"]["client_status"]
           updated_at?: string
           workspace_id?: string | null
         }
@@ -1020,6 +1032,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
       }
       whatsapp_sessions: {
         Row: {
@@ -1137,9 +1170,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_user_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
     Enums: {
+      app_role: "admin" | "client"
       appointment_status:
         | "scheduled"
         | "confirmed"
@@ -1148,6 +1193,8 @@ export type Database = {
         | "no_show"
       channel_status: "disconnected" | "connecting" | "connected" | "error"
       channel_type: "whatsapp" | "messenger" | "instagram"
+      client_plan: "starter" | "growth" | "pro"
+      client_status: "active" | "disabled"
       conversation_status: "open" | "snoozed" | "closed" | "human"
       invoice_status: "draft" | "sent" | "partially_paid" | "paid" | "overdue"
       lead_stage:
@@ -1291,6 +1338,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "client"],
       appointment_status: [
         "scheduled",
         "confirmed",
@@ -1300,6 +1348,8 @@ export const Constants = {
       ],
       channel_status: ["disconnected", "connecting", "connected", "error"],
       channel_type: ["whatsapp", "messenger", "instagram"],
+      client_plan: ["starter", "growth", "pro"],
+      client_status: ["active", "disabled"],
       conversation_status: ["open", "snoozed", "closed", "human"],
       invoice_status: ["draft", "sent", "partially_paid", "paid", "overdue"],
       lead_stage: [
