@@ -103,28 +103,50 @@ function BillingPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [amount, setAmount] = useState<string>("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [bankName, setBankName] = useState("");
   const [note, setNote] = useState("");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
 
-  async function handleUpload(file: File) {
+  async function handleSubmitPayment(e: React.FormEvent) {
+    e.preventDefault();
     if (!user) return;
+    if (!slipFile) {
+      toast.error("Please select a slip image to upload.");
+      return;
+    }
+    const amt = Number(amount);
+    if (!amt || amt <= 0) {
+      toast.error("Enter a valid amount.");
+      return;
+    }
+    if (!referenceNumber.trim() || !bankName.trim()) {
+      toast.error("Reference number and bank name are required.");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "bin";
+      const ext = slipFile.name.split(".").pop() || "bin";
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("payment-slips")
-        .upload(path, file, { upsert: false, contentType: file.type });
+        .upload(path, slipFile, { upsert: false, contentType: slipFile.type });
       if (upErr) throw upErr;
       await fnSlip({
         data: {
-          storage_path: path,
-          amount: amount ? Number(amount) : undefined,
-          note: note || undefined,
+          amount: amt,
+          reference_number: referenceNumber.trim(),
+          bank_name: bankName.trim(),
+          slip_path: path,
+          note: note.trim() || undefined,
         },
       });
-      toast.success("Payment slip uploaded. We'll verify shortly.");
+      toast.success("Payment slip uploaded successfully. We'll verify shortly.");
       setAmount("");
+      setReferenceNumber("");
+      setBankName("");
       setNote("");
+      setSlipFile(null);
       if (fileRef.current) fileRef.current.value = "";
       qc.invalidateQueries({ queryKey: ["billing"] });
     } catch (e: any) {
