@@ -34,12 +34,13 @@ export const listClients = createServerFn({ method: "GET" })
 
 const createSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
-  email: z.string().trim().email().max(255),
-  password: z.string().min(6).max(200),
+  email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(6).max(200).optional(),
   business_name: z.string().trim().min(1).max(150),
   plan: z.enum(["starter", "growth", "pro"]),
   workspace_id: z.string().uuid().optional().nullable(),
   workspace_name: z.string().trim().min(1).max(150).optional(),
+  send_invite: z.boolean().optional().default(false),
 });
 
 export const createClient = createServerFn({ method: "POST" })
