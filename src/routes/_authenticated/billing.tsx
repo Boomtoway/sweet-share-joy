@@ -71,7 +71,7 @@ function BillingPage() {
   const qc = useQueryClient();
   const fetchBilling = useServerFn(getMyBilling);
   const fnRenewal = useServerFn(requestRenewal);
-  const fnSlip = useServerFn(recordPaymentSlip);
+  const fnSlip = useServerFn(createPaymentRequest);
   const fnSign = useServerFn(getSlipSignedUrl);
 
   const { data, isLoading } = useQuery({
