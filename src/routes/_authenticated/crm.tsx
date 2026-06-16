@@ -171,6 +171,26 @@ function CrmPage() {
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input className="pl-8 w-72" placeholder="Search name, phone, notes…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={syncing}
+          onClick={async () => {
+            setSyncing(true);
+            try {
+              const r = await syncFn();
+              toast.success(`Synced: ${r.created} new, ${r.updated} updated, ${r.removed} cleaned`);
+              if (workspaceId) await load(workspaceId);
+            } catch (e: any) {
+              toast.error(e?.message ?? "Sync failed");
+            } finally {
+              setSyncing(false);
+            }
+          }}
+        >
+          {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+          Sync Conversations
+        </Button>
         <div className="ml-auto text-xs text-muted-foreground">
           Drag cards between columns. Stages auto-detect from AI conversations.
         </div>
