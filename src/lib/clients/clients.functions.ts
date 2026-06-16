@@ -62,20 +62,49 @@ export const createClient = createServerFn({ method: "POST" })
       await supabaseAdmin.from("ai_settings").insert({ workspace_id: workspaceId });
     }
 
-    const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true,
-      user_metadata: {
-        full_name: data.full_name,
-        business_name: data.business_name,
-        plan: data.plan,
-        app_role: "client",
-        workspace_id: workspaceId,
-      },
-    });
-    if (cErr) throw new Error(cErr.message);
-    const userId = created.user!.id;
+    if (!data.password && !data.send_invite) {
+      throw new Error("Provide a password or enable Send Invite Email");
+    }
+
+    let userId: string;
+    let inviteSent = false;
+
+    if (data.send_invite) {
+      const { data: invited, error: iErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
+        data: {
+          full_name: data.full_name,
+          business_name: data.business_name,
+          plan: data.plan,
+          app_role: "client",
+          workspace_id: workspaceId,
+        },
+      });
+      if (iErr) throw new Error(`Invite failed: ${iErr.message}`);
+      userId = invited.user!.id;
+      inviteSent = true;
+      if (data.password) {
+        const { error: pErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: data.password,
+          email_confirm: true,
+        });
+        if (pErr) throw new Error(`Set password failed: ${pErr.message}`);
+      }
+    } else {
+      const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password: data.password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: data.full_name,
+          business_name: data.business_name,
+          plan: data.plan,
+          app_role: "client",
+          workspace_id: workspaceId,
+        },
+      });
+      if (cErr) throw new Error(`Auth user creation failed: ${cErr.message}`);
+      userId = created.user!.id;
+    }
 
     // Trigger inserts profile + role; ensure values are correct in case metadata differed
     await supabaseAdmin.from("profiles").update({
@@ -86,9 +115,31 @@ export const createClient = createServerFn({ method: "POST" })
       plan: data.plan,
       status: "active",
     }).eq("id", userId);
-    await supabaseAdmin.from("user_roles").insert({ user_id: userId, role: "client" }).select();
+    await supabaseAdmin.from("user_roles").upsert(
+      { user_id: userId, role: "client" },
+      { onConflict: "user_id,role" }
+    );
 
-    return { id: userId, workspace_id: workspaceId };
+    return { id: userId, workspace_id: workspaceId, invite_sent: inviteSent };
+  });
+
+const resetPasswordSchema = z.object({
+  id: z.string().uuid(),
+  password: z.string().min(6).max(200),
+});
+
+export const resetClientPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => resetPasswordSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.id, {
+      password: data.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 const updateSchema = z.object({
