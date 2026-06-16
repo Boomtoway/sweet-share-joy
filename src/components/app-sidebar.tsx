@@ -89,7 +89,10 @@ const groups: Group[] = [
 
   {
     label: "Account",
-    items: [{ title: "Settings", url: "/settings", icon: Settings }],
+    items: [
+      { title: "Billing", url: "/billing", icon: CreditCard },
+      { title: "Settings", url: "/settings", icon: Settings },
+    ],
   },
 ];
 
