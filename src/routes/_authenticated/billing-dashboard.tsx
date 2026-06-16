@@ -195,7 +195,6 @@ function BillingDashboard() {
             <DetailRow label="Started" value={fmtDate(sub.start_date)} />
             <DetailRow label="Max Bots" value={botsAllowed == null ? "Unlimited" : String(botsAllowed)} />
             <DetailRow label="Max Messages" value={msgsAllowed == null ? "Unlimited" : msgsAllowed.toLocaleString()} />
-            <DetailRow label="Workspace ID" value={sub.workspace_id?.slice(0, 8) ?? "—"} />
           </div>
         </CardContent>
       </Card>
