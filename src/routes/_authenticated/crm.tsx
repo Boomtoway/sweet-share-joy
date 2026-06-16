@@ -50,6 +50,8 @@ interface Lead {
   follow_up_date: string | null;
   stage_changed_at: string | null;
   value: number;
+  deal_value: number | null;
+  won_date: string | null;
   lead_score: number | null;
   ai_summary: string | null;
   created_at: string;
