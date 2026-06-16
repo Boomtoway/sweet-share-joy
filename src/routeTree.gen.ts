@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/risk'
 import { Route as AuthenticatedRevenueRouteImport } from './routes/_authenticated/revenue'
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
+import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
 import { Route as AuthenticatedLeadFollowupsRouteImport } from './routes/_authenticated/lead-followups'
@@ -99,6 +100,11 @@ const AuthenticatedRevenueRoute = AuthenticatedRevenueRouteImport.update({
 const AuthenticatedReplyRulesRoute = AuthenticatedReplyRulesRouteImport.update({
   id: '/reply-rules',
   path: '/reply-rules',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPaymentsRoute = AuthenticatedPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMessengerRoute = AuthenticatedMessengerRouteImport.update({
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
+  '/payments': typeof AuthenticatedPaymentsRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/revenue': typeof AuthenticatedRevenueRoute
   '/risk': typeof AuthenticatedRiskRoute
@@ -289,6 +296,7 @@ export interface FileRoutesByTo {
   '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
+  '/payments': typeof AuthenticatedPaymentsRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/revenue': typeof AuthenticatedRevenueRoute
   '/risk': typeof AuthenticatedRiskRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/_authenticated/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
+  '/_authenticated/payments': typeof AuthenticatedPaymentsRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/_authenticated/revenue': typeof AuthenticatedRevenueRoute
   '/_authenticated/risk': typeof AuthenticatedRiskRoute
@@ -365,6 +374,7 @@ export interface FileRouteTypes {
     | '/lead-followups'
     | '/leads'
     | '/messenger'
+    | '/payments'
     | '/reply-rules'
     | '/revenue'
     | '/risk'
@@ -401,6 +411,7 @@ export interface FileRouteTypes {
     | '/lead-followups'
     | '/leads'
     | '/messenger'
+    | '/payments'
     | '/reply-rules'
     | '/revenue'
     | '/risk'
@@ -438,6 +449,7 @@ export interface FileRouteTypes {
     | '/_authenticated/lead-followups'
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
+    | '/_authenticated/payments'
     | '/_authenticated/reply-rules'
     | '/_authenticated/revenue'
     | '/_authenticated/risk'
@@ -545,6 +557,13 @@ declare module '@tanstack/react-router' {
       path: '/reply-rules'
       fullPath: '/reply-rules'
       preLoaderRoute: typeof AuthenticatedReplyRulesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/payments': {
+      id: '/_authenticated/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof AuthenticatedPaymentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/messenger': {
@@ -736,6 +755,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLeadFollowupsRoute: typeof AuthenticatedLeadFollowupsRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
+  AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
   AuthenticatedRevenueRoute: typeof AuthenticatedRevenueRoute
   AuthenticatedRiskRoute: typeof AuthenticatedRiskRoute
@@ -764,6 +784,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLeadFollowupsRoute: AuthenticatedLeadFollowupsRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
+  AuthenticatedPaymentsRoute: AuthenticatedPaymentsRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
   AuthenticatedRevenueRoute: AuthenticatedRevenueRoute,
   AuthenticatedRiskRoute: AuthenticatedRiskRoute,
