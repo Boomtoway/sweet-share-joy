@@ -16,6 +16,7 @@ import {
   Settings,
   Sparkles,
   Calendar,
+  Send,
 } from "lucide-react";
 import {
   Sidebar,
