@@ -22,7 +22,9 @@ import {
   DollarSign,
   FileText,
   Briefcase,
+  CreditCard,
 } from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -79,8 +81,12 @@ const groups: Group[] = [
   },
   {
     label: "Admin",
-    items: [{ title: "Clients", url: "/clients", icon: Briefcase, roles: ["admin"] }],
+    items: [
+      { title: "Clients", url: "/clients", icon: Briefcase, roles: ["admin"] },
+      { title: "Subscriptions", url: "/subscriptions", icon: CreditCard, roles: ["admin"] },
+    ],
   },
+
   {
     label: "Account",
     items: [{ title: "Settings", url: "/settings", icon: Settings }],
