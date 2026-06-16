@@ -3,9 +3,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import {
-  listPaymentSlips,
-  approvePaymentSlip,
-  rejectPaymentSlip,
+  listPaymentRequests,
+  approvePaymentRequest,
+  rejectPaymentRequest,
   getAdminSlipUrl,
 } from "@/lib/payments/payments.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,11 +27,19 @@ export const Route = createFileRoute("/_authenticated/payments")({
   component: PaymentsPage,
 });
 
+const PLAN_LABEL: Record<string, string> = {
+  starter: "Starter",
+  growth: "Growth",
+  agency: "Agency",
+};
+
 function fmtDate(d?: string | null) {
   return d ? new Date(d).toLocaleString() : "—";
 }
-function fmtLKR(n?: number | null) {
-  return n == null ? "—" : `LKR ${n.toLocaleString()}`;
+function fmtLKR(n?: number | string | null) {
+  if (n == null) return "—";
+  const num = typeof n === "string" ? Number(n) : n;
+  return `LKR ${num.toLocaleString()}`;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -40,18 +48,18 @@ function StatusBadge({ status }: { status: string }) {
     approved: "default",
     rejected: "destructive",
   };
-  return <Badge variant={m[status] ?? "secondary"}>{status}</Badge>;
+  return <Badge variant={m[status] ?? "secondary"} className="capitalize">{status}</Badge>;
 }
 
 function PaymentsPage() {
   const qc = useQueryClient();
-  const fetchAll = useServerFn(listPaymentSlips);
-  const fnApprove = useServerFn(approvePaymentSlip);
-  const fnReject = useServerFn(rejectPaymentSlip);
+  const fetchAll = useServerFn(listPaymentRequests);
+  const fnApprove = useServerFn(approvePaymentRequest);
+  const fnReject = useServerFn(rejectPaymentRequest);
   const fnUrl = useServerFn(getAdminSlipUrl);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-payment-slips"],
+    queryKey: ["admin-payment-requests"],
     queryFn: () => fetchAll(),
   });
 
@@ -62,9 +70,10 @@ function PaymentsPage() {
   const approveMut = useMutation({
     mutationFn: (id: string) => fnApprove({ data: { id } }),
     onSuccess: () => {
-      toast.success("Payment approved. Subscription extended 30 days.");
-      qc.invalidateQueries({ queryKey: ["admin-payment-slips"] });
-      qc.invalidateQueries({ queryKey: ["subscriptions"] });
+      toast.success("Payment approved. Subscription extended by 30 days.");
+      qc.invalidateQueries({ queryKey: ["admin-payment-requests"] });
+      qc.invalidateQueries({ queryKey: ["revenue-analytics"] });
+      qc.invalidateQueries({ queryKey: ["billing"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Failed to approve"),
   });
@@ -73,10 +82,10 @@ function PaymentsPage() {
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       fnReject({ data: { id, reason } }),
     onSuccess: () => {
-      toast.success("Payment rejected.");
+      toast.success("Payment rejected. Client has been notified.");
       setRejectId(null);
       setReason("");
-      qc.invalidateQueries({ queryKey: ["admin-payment-slips"] });
+      qc.invalidateQueries({ queryKey: ["admin-payment-requests"] });
     },
     onError: (e: any) => toast.error(e.message ?? "Failed to reject"),
   });
@@ -90,30 +99,37 @@ function PaymentsPage() {
     }
   }
 
-  const slips = data?.slips ?? [];
-  const stats = data?.stats ?? { pending: 0, approved: 0, rejected: 0, total: 0 };
-  const filtered = tab === "all" ? slips : slips.filter((s: any) => s.status === tab);
+  const requests = data?.requests ?? [];
+  const stats = data?.stats ?? {
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    total: 0,
+    pending_amount: 0,
+    approved_amount: 0,
+  };
+  const filtered = tab === "all" ? requests : requests.filter((r: any) => r.status === tab);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Payment Approvals</h1>
         <p className="text-muted-foreground">
-          Review payment slips and renewal requests from clients.
+          Review uploaded payment slips and approve or reject client payments.
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Pending" value={stats.pending} icon={Clock} />
-        <StatCard label="Approved" value={stats.approved} icon={CheckCircle2} />
+        <StatCard label="Pending" value={stats.pending} sub={fmtLKR(stats.pending_amount)} icon={Clock} />
+        <StatCard label="Approved" value={stats.approved} sub={fmtLKR(stats.approved_amount)} icon={CheckCircle2} />
         <StatCard label="Rejected" value={stats.rejected} icon={XCircle} />
         <StatCard label="Total" value={stats.total} icon={Wallet} />
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
-          <CardTitle>Payment Slips</CardTitle>
-          <div className="flex gap-1">
+          <CardTitle>Payment Requests</CardTitle>
+          <div className="flex gap-2">
             {(["pending", "approved", "rejected", "all"] as const).map((t) => (
               <Button
                 key={t}
@@ -132,7 +148,7 @@ function PaymentsPage() {
             <p className="text-muted-foreground py-6 text-center">Loading…</p>
           ) : filtered.length === 0 ? (
             <p className="text-muted-foreground py-10 text-center">
-              No {tab === "all" ? "" : tab} payment slips.
+              No {tab === "all" ? "" : tab} payment requests.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -140,73 +156,88 @@ function PaymentsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Client</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Plan</TableHead>
                     <TableHead>Amount</TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Bank</TableHead>
                     <TableHead>Slip</TableHead>
-                    <TableHead>Submitted</TableHead>
+                    <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>
-                        <div className="font-medium">
-                          {s.profile?.business_name ||
-                            s.profile?.full_name ||
-                            "—"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {s.profile?.email ?? s.client_id.slice(0, 8)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {s.type === "renewal_request" ? "Renewal request" : "Slip"}
-                      </TableCell>
-                      <TableCell>{fmtLKR(s.amount)}</TableCell>
-                      <TableCell>
-                        {s.storage_path ? (
+                  {filtered.map((r: any) => {
+                    const planKey = r.subscription?.plan ?? r.profile?.plan;
+                    return (
+                      <TableRow key={r.id}>
+                        <TableCell>
+                          <div className="font-medium">
+                            {r.profile?.business_name ||
+                              r.profile?.full_name ||
+                              "—"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.profile?.email ?? r.client_id.slice(0, 8)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {planKey ? (
+                            <Badge variant="outline">
+                              {PLAN_LABEL[planKey] ?? planKey}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium">{fmtLKR(r.amount)}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {r.reference_number}
+                        </TableCell>
+                        <TableCell>{r.bank_name}</TableCell>
+                        <TableCell>
+                          {r.slip_path ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openSlip(r.slip_path)}
+                            >
+                              <FileText className="h-4 w-4 mr-1" /> View
+                              <ExternalLink className="h-3 w-3 ml-1" />
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {fmtDate(r.created_at)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={r.status} />
+                        </TableCell>
+                        <TableCell className="text-right space-x-1 whitespace-nowrap">
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => openSlip(s.storage_path)}
+                            disabled={r.status !== "pending" || approveMut.isPending}
+                            onClick={() => approveMut.mutate(r.id)}
                           >
-                            <FileText className="h-4 w-4 mr-1" /> View
-                            <ExternalLink className="h-3 w-3 ml-1" />
+                            <Check className="h-4 w-4 mr-1" /> Approve
                           </Button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No file</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {fmtDate(s.created_at)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={s.status} />
-                      </TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button
-                          size="sm"
-                          disabled={s.status !== "pending" || approveMut.isPending}
-                          onClick={() => approveMut.mutate(s.id)}
-                        >
-                          <Check className="h-4 w-4 mr-1" /> Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={s.status !== "pending"}
-                          onClick={() => {
-                            setRejectId(s.id);
-                            setReason("");
-                          }}
-                        >
-                          <X className="h-4 w-4 mr-1" /> Reject
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={r.status !== "pending"}
+                            onClick={() => {
+                              setRejectId(r.id);
+                              setReason("");
+                            }}
+                          >
+                            <X className="h-4 w-4 mr-1" /> Reject
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -217,13 +248,14 @@ function PaymentsPage() {
       <Dialog open={!!rejectId} onOpenChange={(o) => !o && setRejectId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject payment</DialogTitle>
+            <DialogTitle>Reject payment request</DialogTitle>
           </DialogHeader>
           <Textarea
-            placeholder="Reason (optional, sent to admin notifications)"
+            placeholder="Reason (sent to the client in their notification)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
+            maxLength={500}
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectId(null)}>
@@ -248,10 +280,12 @@ function PaymentsPage() {
 function StatCard({
   label,
   value,
+  sub,
   icon: Icon,
 }: {
   label: string;
   value: number;
+  sub?: string;
   icon: any;
 }) {
   return (
@@ -262,6 +296,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>
+        {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
       </CardContent>
     </Card>
   );
