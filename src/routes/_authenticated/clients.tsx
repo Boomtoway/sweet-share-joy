@@ -7,6 +7,7 @@ import {
   createClient as createClientFn,
   updateClient,
   listWorkspaces,
+  resetClientPassword,
 } from "@/lib/clients/clients.functions";
 import { useRole } from "@/hooks/use-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
