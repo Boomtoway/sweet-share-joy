@@ -313,6 +313,14 @@ function FollowupsPage() {
             {runCheck.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-2" />}
             Run Follow-up Check Now
           </Button>
+          <Button variant="outline" onClick={() => repair.mutate()} disabled={repair.isPending}>
+            {repair.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wrench className="h-4 w-4 mr-2" />}
+            Repair Contacts
+          </Button>
+          <Button variant="outline" onClick={() => { if (confirm("Delete contacts that have no phone, WhatsApp, sender number, or remote JID?")) cleanup.mutate(); }} disabled={cleanup.isPending}>
+            {cleanup.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Cleanup Empty Contacts
+          </Button>
           <Dialog open={forceOpen} onOpenChange={setForceOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
