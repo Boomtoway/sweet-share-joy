@@ -4,9 +4,9 @@
 export const VPS_SEND_URL = "https://bot.statapplkmarketing.shop/send";
 export const VPS_TOKEN = "startapplk-bot-12345";
 
-/** Strict WhatsApp phone validator: 10–15 digits, no symbols. */
+/** Strict Sri Lankan WhatsApp validator: must be 947xxxxxxxx, no symbols. */
 export function isValidWhatsAppNumber(n: string): boolean {
-  return /^[0-9]{10,15}$/.test(n);
+  return /^94\d{9}$/.test(n);
 }
 
 /** Normalize WhatsApp recipient: strip JID suffix, keep digits, leading 0 -> 94. */
@@ -18,10 +18,25 @@ export function normalizeRecipient(value: unknown): string {
   return digits;
 }
 
-/** Pick recipient: conversation.remote_jid || contact.remote_jid || contact.phone */
+export function extractWhatsappSendNumber(...values: unknown[]): string {
+  for (const value of values) {
+    const recipient = normalizeRecipient(value);
+    if (isValidWhatsAppNumber(recipient)) return recipient;
+  }
+  return "";
+}
+
+/** Pick only real sender fields; never IDs/history recipients. */
 export function pickRecipient(conversation: any, contact: any): string {
-  const raw = conversation?.remote_jid || contact?.remote_jid || contact?.phone || "";
-  return normalizeRecipient(raw);
+  return extractWhatsappSendNumber(
+    conversation?.remote_jid,
+    conversation?.whatsapp_number,
+    conversation?.sender_number,
+    contact?.remote_jid,
+    contact?.whatsapp_number,
+    contact?.sender_number,
+    contact?.phone,
+  );
 }
 
 export type VpsSendResult = {
