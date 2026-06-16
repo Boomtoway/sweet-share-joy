@@ -1,10 +1,21 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useRole } from "@/hooks/use-role";
+
+const CLIENT_ALLOWED = new Set([
+  "/dashboard",
+  "/leads",
+  "/appointments",
+  "/invoices",
+  "/revenue",
+  "/settings",
+]);
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -19,6 +30,15 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const { role, loading: roleLoading } = useRole();
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  useEffect(() => {
+    if (roleLoading || !role) return;
+    if (role === "client" && !CLIENT_ALLOWED.has(pathname)) {
+      navigate({ to: "/dashboard", replace: true });
+    }
+  }, [role, roleLoading, pathname, navigate]);
 
   const handleSignOut = async () => {
     await signOut();

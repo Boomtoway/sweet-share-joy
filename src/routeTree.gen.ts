@@ -28,6 +28,7 @@ import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCrmRouteImport } from './routes/_authenticated/crm'
 import { Route as AuthenticatedConversationsRouteImport } from './routes/_authenticated/conversations'
+import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedBusinessKnowledgeRouteImport } from './routes/_authenticated/business-knowledge'
 import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authenticated/appointments'
@@ -137,6 +138,11 @@ const AuthenticatedConversationsRoute =
     path: '/conversations',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedChannelsRoute = AuthenticatedChannelsRouteImport.update({
   id: '/channels',
   path: '/channels',
@@ -208,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/appointments': typeof AuthenticatedAppointmentsRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/channels': typeof AuthenticatedChannelsRoute
+  '/clients': typeof AuthenticatedClientsRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -239,6 +246,7 @@ export interface FileRoutesByTo {
   '/appointments': typeof AuthenticatedAppointmentsRoute
   '/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/channels': typeof AuthenticatedChannelsRoute
+  '/clients': typeof AuthenticatedClientsRoute
   '/conversations': typeof AuthenticatedConversationsRoute
   '/crm': typeof AuthenticatedCrmRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
   '/_authenticated/business-knowledge': typeof AuthenticatedBusinessKnowledgeRoute
   '/_authenticated/channels': typeof AuthenticatedChannelsRoute
+  '/_authenticated/clients': typeof AuthenticatedClientsRoute
   '/_authenticated/conversations': typeof AuthenticatedConversationsRoute
   '/_authenticated/crm': typeof AuthenticatedCrmRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/business-knowledge'
     | '/channels'
+    | '/clients'
     | '/conversations'
     | '/crm'
     | '/dashboard'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/appointments'
     | '/business-knowledge'
     | '/channels'
+    | '/clients'
     | '/conversations'
     | '/crm'
     | '/dashboard'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/_authenticated/appointments'
     | '/_authenticated/business-knowledge'
     | '/_authenticated/channels'
+    | '/_authenticated/clients'
     | '/_authenticated/conversations'
     | '/_authenticated/crm'
     | '/_authenticated/dashboard'
@@ -539,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConversationsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/clients': {
+      id: '/_authenticated/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof AuthenticatedClientsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/channels': {
       id: '/_authenticated/channels'
       path: '/channels'
@@ -625,6 +644,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRoute
   AuthenticatedBusinessKnowledgeRoute: typeof AuthenticatedBusinessKnowledgeRoute
   AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
+  AuthenticatedClientsRoute: typeof AuthenticatedClientsRoute
   AuthenticatedConversationsRoute: typeof AuthenticatedConversationsRoute
   AuthenticatedCrmRoute: typeof AuthenticatedCrmRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -649,6 +669,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRoute,
   AuthenticatedBusinessKnowledgeRoute: AuthenticatedBusinessKnowledgeRoute,
   AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
+  AuthenticatedClientsRoute: AuthenticatedClientsRoute,
   AuthenticatedConversationsRoute: AuthenticatedConversationsRoute,
   AuthenticatedCrmRoute: AuthenticatedCrmRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

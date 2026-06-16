@@ -21,6 +21,7 @@ import {
   Kanban,
   DollarSign,
   FileText,
+  Briefcase,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,8 +34,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useRole } from "@/hooks/use-role";
 
-const groups = [
+type Item = { title: string; url: string; icon: any; roles?: ("admin" | "client")[] };
+type Group = { label: string; items: Item[] };
+
+const groups: Group[] = [
   {
     label: "Overview",
     items: [{ title: "Dashboard", url: "/dashboard", icon: LayoutDashboard }],
@@ -42,35 +47,39 @@ const groups = [
   {
     label: "Channels",
     items: [
-      { title: "Channels", url: "/channels", icon: Radio },
-      { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle },
-      { title: "Messenger", url: "/messenger", icon: Facebook },
-      { title: "Instagram", url: "/instagram", icon: Instagram },
+      { title: "Channels", url: "/channels", icon: Radio, roles: ["admin"] },
+      { title: "WhatsApp", url: "/whatsapp", icon: MessageCircle, roles: ["admin"] },
+      { title: "Messenger", url: "/messenger", icon: Facebook, roles: ["admin"] },
+      { title: "Instagram", url: "/instagram", icon: Instagram, roles: ["admin"] },
     ],
   },
   {
     label: "AI",
     items: [
-      { title: "AI Agent Settings", url: "/ai-settings", icon: Bot },
-      { title: "Gemini API", url: "/api-settings", icon: Sparkles },
-      { title: "Business Knowledge", url: "/business-knowledge", icon: BookOpen },
-      { title: "Reply Rules", url: "/reply-rules", icon: ListChecks },
+      { title: "AI Agent Settings", url: "/ai-settings", icon: Bot, roles: ["admin"] },
+      { title: "Gemini API", url: "/api-settings", icon: Sparkles, roles: ["admin"] },
+      { title: "Business Knowledge", url: "/business-knowledge", icon: BookOpen, roles: ["admin"] },
+      { title: "Reply Rules", url: "/reply-rules", icon: ListChecks, roles: ["admin"] },
     ],
   },
   {
     label: "Operations",
     items: [
-      { title: "Conversations", url: "/conversations", icon: Inbox },
+      { title: "Conversations", url: "/conversations", icon: Inbox, roles: ["admin"] },
       { title: "Appointments", url: "/appointments", icon: Calendar },
-      { title: "Sales CRM", url: "/crm", icon: Kanban },
+      { title: "Sales CRM", url: "/crm", icon: Kanban, roles: ["admin"] },
       { title: "Revenue History", url: "/revenue", icon: DollarSign },
       { title: "Invoices", url: "/invoices", icon: FileText },
       { title: "Leads", url: "/leads", icon: Users },
-      { title: "Lead Follow-ups", url: "/lead-followups", icon: Send },
-      { title: "Human Takeover", url: "/human-takeover", icon: UserCheck },
-      { title: "Risk Control", url: "/risk", icon: ShieldAlert },
-      { title: "VPS Bots", url: "/vps", icon: Server },
+      { title: "Lead Follow-ups", url: "/lead-followups", icon: Send, roles: ["admin"] },
+      { title: "Human Takeover", url: "/human-takeover", icon: UserCheck, roles: ["admin"] },
+      { title: "Risk Control", url: "/risk", icon: ShieldAlert, roles: ["admin"] },
+      { title: "VPS Bots", url: "/vps", icon: Server, roles: ["admin"] },
     ],
+  },
+  {
+    label: "Admin",
+    items: [{ title: "Clients", url: "/clients", icon: Briefcase, roles: ["admin"] }],
   },
   {
     label: "Account",
@@ -81,6 +90,15 @@ const groups = [
 export function AppSidebar() {
   const currentPath = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) => currentPath === p;
+  const { role } = useRole();
+  const effectiveRole = role ?? "client";
+
+  const visibleGroups = groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((it) => !it.roles || it.roles.includes(effectiveRole)),
+    }))
+    .filter((g) => g.items.length > 0);
 
   return (
     <Sidebar collapsible="icon">
@@ -100,7 +118,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {groups.map((g) => (
+        {visibleGroups.map((g) => (
           <SidebarGroup key={g.label}>
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
