@@ -71,6 +71,18 @@ function AppointmentsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
 
+  const sendNowFn = useServerFn(sendReminderNow);
+  const sendNow = useMutation({
+    mutationFn: (id: string) => sendNowFn({ data: { id, tier: "manual" } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Reminder sent");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Send failed"),
+  });
+
+  const [historyId, setHistoryId] = useState<string | null>(null);
+
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
@@ -89,6 +101,14 @@ function AppointmentsPage() {
     };
   }, [appts]);
 
+  const renderReminderBadges = (a: Appt) => (
+    <div className="flex gap-1 flex-wrap">
+      <Badge variant={(a as any).reminder_24h_sent ? "default" : "outline"} className="text-xs">24h</Badge>
+      <Badge variant={(a as any).reminder_1h_sent ? "default" : "outline"} className="text-xs">1h</Badge>
+      <Badge variant={(a as any).reminder_15m_sent ? "default" : "outline"} className="text-xs">15m</Badge>
+    </div>
+  );
+
   const renderTable = (rows: Appt[]) => (
     <Card>
       <CardContent className="p-0">
@@ -100,6 +120,7 @@ function AppointmentsPage() {
               <TableHead>Service Needed</TableHead>
               <TableHead>Date & Time</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Reminders</TableHead>
               <TableHead>Notes</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -107,7 +128,7 @@ function AppointmentsPage() {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No appointments
                 </TableCell>
               </TableRow>
@@ -119,8 +140,20 @@ function AppointmentsPage() {
                 <TableCell>{a.service_needed ?? "—"}</TableCell>
                 <TableCell>{fmtDateTime(a)}</TableCell>
                 <TableCell><Badge variant={statusVariant(a.status)}>{a.status}</Badge></TableCell>
+                <TableCell>{renderReminderBadges(a)}</TableCell>
                 <TableCell className="max-w-xs truncate">{a.notes ?? "—"}</TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right space-x-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={sendNow.isPending}
+                    onClick={() => sendNow.mutate(a.id)}
+                  >
+                    <Bell className="h-3 w-3 mr-1" />Send Reminder Now
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setHistoryId(a.id)}>
+                    <History className="h-3 w-3 mr-1" />History
+                  </Button>
                   {(a.status === "scheduled" || a.status === "confirmed") && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => update.mutate({ id: a.id, status: "completed" })}>
