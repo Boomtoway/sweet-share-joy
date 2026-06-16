@@ -427,18 +427,24 @@ function CrmPage() {
 
       <Dialog open={!!wonPrompt} onOpenChange={(o) => !o && setWonPrompt(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>🎉 Mark as Won</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Enter Deal Value</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Deal value (LKR)</Label>
-              <Input type="number" min={0} autoFocus
+              <Label className="text-xs">Deal Value (LKR) <span className="text-destructive">*</span></Label>
+              <Input type="number" min={0} step="any" required autoFocus placeholder="e.g. 50000"
                 value={wonPrompt?.dealValue ?? ""}
-                onChange={(e) => setWonPrompt((p) => p ? { ...p, dealValue: e.target.value } : p)} />
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, dealValue: e.target.value } : p)}
+                onKeyDown={(e) => { if (e.key === "Enter") confirmWon(); }} />
             </div>
             <div>
               <Label className="text-xs">Service</Label>
               <Input value={wonPrompt?.service ?? ""}
                 onChange={(e) => setWonPrompt((p) => p ? { ...p, service: e.target.value } : p)} />
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Textarea rows={3} value={wonPrompt?.notes ?? ""}
+                onChange={(e) => setWonPrompt((p) => p ? { ...p, notes: e.target.value } : p)} />
             </div>
           </div>
           <DialogFooter>
