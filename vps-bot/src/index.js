@@ -122,6 +122,7 @@ async function startSock() {
           m.message.videoMessage?.caption ??
           '';
         const name = m.pushName ?? from;
+        log.info({ rawJid, remoteJid, from, senderPn: m.key.senderPn, remoteJidAlt: m.key.remoteJidAlt, participantPn: m.key.participantPn }, 'INCOMING_MESSAGE');
 
         const res = await fetch(LOVABLE_WEBHOOK_URL, {
           method: 'POST',
@@ -133,6 +134,9 @@ async function startSock() {
             remote_jid: remoteJid,
             whatsapp_number: from,
             sender_number: from,
+            senderPn: m.key.senderPn,
+            remoteJidAlt: m.key.remoteJidAlt,
+            participantPn: m.key.participantPn,
             contact_name: name,
             body,
             external_id: m.key.id,
