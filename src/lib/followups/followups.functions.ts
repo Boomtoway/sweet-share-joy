@@ -82,7 +82,44 @@ export const stopFollowups = createServerFn({ method: "POST" })
       .eq("status", "pending");
     if (data.id) q = q.eq("id", data.id);
     if (data.conversation_id) q = q.eq("conversation_id", data.conversation_id);
-    const { error, data: rows } = await q.select("id");
+    const { error, data: rows } = await q.select("id, followup_type, conversation_id");
     if (error) throw error;
+    if (rows && rows.length > 0) {
+      await context.supabase.from("bot_logs").insert(
+        rows.map((r: any) => ({
+          workspace_id: wsId,
+          bot_name: "lead-followup",
+          channel: "whatsapp",
+          level: "info",
+          message: `FOLLOWUP_CANCELLED ${r.followup_type}`,
+          metadata: { followup_id: r.id, conversation_id: r.conversation_id, type: r.followup_type, manual: true },
+        })),
+      );
+    }
     return { cancelled: rows?.length ?? 0 };
+  });
+
+export const getFollowupTestMode = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const wsId = await workspaceId(context);
+    const { data } = await context.supabase
+      .from("ai_settings")
+      .select("followup_test_mode")
+      .eq("workspace_id", wsId)
+      .maybeSingle();
+    return { test_mode: !!(data as any)?.followup_test_mode };
+  });
+
+export const setFollowupTestMode = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ test_mode: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const wsId = await workspaceId(context);
+    const { error } = await context.supabase
+      .from("ai_settings")
+      .update({ followup_test_mode: data.test_mode } as any)
+      .eq("workspace_id", wsId);
+    if (error) throw error;
+    return { test_mode: data.test_mode };
   });
