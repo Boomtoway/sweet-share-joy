@@ -2,6 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SubscriptionWidget } from "@/components/subscription-widget";
+
 import {
   Users,
   MessageSquare,
@@ -126,7 +128,11 @@ function Dashboard() {
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Live overview of your AI sales operations.</p>
       </div>
+
+      <SubscriptionWidget />
+
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+
         {cards.map((c) => (
           <StatCard key={c.title} {...c} />
         ))}
