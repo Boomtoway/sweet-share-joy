@@ -143,7 +143,7 @@ function CrmPage() {
     return map;
   }, [filtered]);
 
-  const [wonPrompt, setWonPrompt] = useState<{ id: string; prevStage: Stage; dealValue: string; service: string } | null>(null);
+  const [wonPrompt, setWonPrompt] = useState<{ id: string; prevStage: Stage; dealValue: string; service: string; notes: string } | null>(null);
 
   const applyStage = async (id: string, stage: Stage, extra: Record<string, any> = {}) => {
     const prev = leads.find((l) => l.id === id);
@@ -162,6 +162,7 @@ function CrmPage() {
         id, prevStage: prev.stage,
         dealValue: String(prev.deal_value ?? prev.value ?? ""),
         service: prev.service_interest ?? "",
+        notes: prev.notes ?? "",
       });
       return;
     }
@@ -170,12 +171,19 @@ function CrmPage() {
 
   const confirmWon = async () => {
     if (!wonPrompt) return;
-    const v = Number(wonPrompt.dealValue) || 0;
+    const raw = wonPrompt.dealValue.trim();
+    if (raw === "") { toast.error("Deal Value is required"); return; }
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < 0) { toast.error("Enter a valid deal value"); return; }
+    if (v === 0 && !confirm("Save Won deal with value 0?")) return;
+    const prev = leads.find((l) => l.id === wonPrompt.id);
+    const mergedNotes = wonPrompt.notes && wonPrompt.notes !== (prev?.notes ?? "") ? wonPrompt.notes : (prev?.notes ?? null);
     await applyStage(wonPrompt.id, "won", {
       deal_value: v,
       value: v,
       won_date: new Date().toISOString(),
       service_interest: wonPrompt.service || null,
+      notes: mergedNotes,
     });
     setWonPrompt(null);
   };
