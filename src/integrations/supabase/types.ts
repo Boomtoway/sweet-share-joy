@@ -26,6 +26,7 @@ export type Database = {
           enabled: boolean
           faq_answers: string
           followup_script: string
+          followup_test_mode: boolean
           human_keywords: string[]
           id: string
           language: string
@@ -58,6 +59,7 @@ export type Database = {
           enabled?: boolean
           faq_answers?: string
           followup_script?: string
+          followup_test_mode?: boolean
           human_keywords?: string[]
           id?: string
           language?: string
@@ -90,6 +92,7 @@ export type Database = {
           enabled?: boolean
           faq_answers?: string
           followup_script?: string
+          followup_test_mode?: boolean
           human_keywords?: string[]
           id?: string
           language?: string
