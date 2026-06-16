@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendViaVps, extractWhatsappSendNumber } from "@/lib/vps/send";
-import { FOLLOWUP_TIERS, followupMessage, type FollowupType } from "@/lib/followups/followups";
+import { tiersFor, followupMessage, PROD_FOLLOWUP_TIERS, TEST_FOLLOWUP_TIERS, type FollowupType } from "@/lib/followups/followups";
 
 // Cron-invoked every 30 minutes:
 //   1. Scan open conversations whose last activity is past a tier threshold.
@@ -17,8 +17,19 @@ export const Route = createFileRoute("/api/public/hooks/lead-followups")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const now = new Date();
 
+        // Per-workspace test-mode map — TEST timings are smallest, so use them
+        // as the conservative outer scan window when any workspace has them on.
+        const { data: settingsRows } = await supabaseAdmin
+          .from("ai_settings")
+          .select("workspace_id, followup_test_mode");
+        const testModeByWs = new Map<string, boolean>();
+        for (const r of settingsRows ?? []) testModeByWs.set((r as any).workspace_id, !!(r as any).followup_test_mode);
+
+        const anyTest = Array.from(testModeByWs.values()).some(Boolean);
+        const minThresholdMs = anyTest ? TEST_FOLLOWUP_TIERS[0].thresholdMs : PROD_FOLLOWUP_TIERS[0].thresholdMs;
+        const oldestThreshold = new Date(now.getTime() - minThresholdMs);
+
         // --- Step 1: schedule new follow-ups ---
-        const oldestThreshold = new Date(now.getTime() - FOLLOWUP_TIERS[0].thresholdMs);
         const { data: convs, error: convErr } = await supabaseAdmin
           .from("conversations")
           .select("id, workspace_id, contact_id, last_message_at, status, contact:contacts(id, name, phone, whatsapp_number, sender_number, remote_jid, human_takeover, is_blacklisted)")
@@ -68,7 +79,8 @@ export const Route = createFileRoute("/api/public/hooks/lead-followups")({
             .in("status", ["pending", "sent"]);
           const taken = new Set((existing ?? []).map((r: any) => r.followup_type));
 
-          for (const tier of FOLLOWUP_TIERS) {
+          const tiers = tiersFor(testModeByWs.get((c as any).workspace_id) === true);
+          for (const tier of tiers) {
             if (idleMs < tier.thresholdMs) continue;
             if (taken.has(tier.type)) continue;
 

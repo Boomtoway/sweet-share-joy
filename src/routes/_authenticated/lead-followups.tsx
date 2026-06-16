@@ -3,13 +3,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { listFollowups, sendFollowupNow, stopFollowups } from "@/lib/followups/followups.functions";
+import { listFollowups, sendFollowupNow, stopFollowups, getFollowupTestMode, setFollowupTestMode } from "@/lib/followups/followups.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Send, Loader2, StopCircle } from "lucide-react";
+import { Send, Loader2, StopCircle, FlaskConical } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lead-followups")({
   component: FollowupsPage,
@@ -48,6 +50,23 @@ function FollowupsPage() {
   const listFn = useServerFn(listFollowups);
   const sendFn = useServerFn(sendFollowupNow);
   const stopFn = useServerFn(stopFollowups);
+  const getTestFn = useServerFn(getFollowupTestMode);
+  const setTestFn = useServerFn(setFollowupTestMode);
+
+  const { data: testModeData } = useQuery<{ test_mode: boolean }>({
+    queryKey: ["followup-test-mode"],
+    queryFn: () => getTestFn(),
+  });
+  const testMode = !!testModeData?.test_mode;
+
+  const toggleTest = useMutation({
+    mutationFn: (v: boolean) => setTestFn({ data: { test_mode: v } }),
+    onSuccess: (r: any) => {
+      toast.success(`Test mode ${r?.test_mode ? "ON (2/5/10 min)" : "OFF (1/3/7 days)"}`);
+      qc.invalidateQueries({ queryKey: ["followup-test-mode"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
   const qc = useQueryClient();
   const [tab, setTab] = useState("all");
 
@@ -136,11 +155,25 @@ function FollowupsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold flex items-center gap-2"><Send className="h-6 w-6" />Lead Follow-ups</h1>
-        <p className="text-sm text-muted-foreground">
-          Automated WhatsApp follow-ups for inactive leads. Reminders are auto-cancelled when the customer replies.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold flex items-center gap-2"><Send className="h-6 w-6" />Lead Follow-ups</h1>
+          <p className="text-sm text-muted-foreground">
+            Automated WhatsApp follow-ups for inactive leads. Reminders are auto-cancelled when the customer replies.
+          </p>
+        </div>
+        <div className={`flex items-center gap-2 rounded-md border px-3 py-2 ${testMode ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" : ""}`}>
+          <FlaskConical className={`h-4 w-4 ${testMode ? "text-amber-600" : "text-muted-foreground"}`} />
+          <Label htmlFor="test-mode" className="text-sm cursor-pointer">
+            TEST MODE {testMode ? "(2 / 5 / 10 min)" : "(1 / 3 / 7 days)"}
+          </Label>
+          <Switch
+            id="test-mode"
+            checked={testMode}
+            disabled={toggleTest.isPending}
+            onCheckedChange={(v) => toggleTest.mutate(v)}
+          />
+        </div>
       </div>
 
       {isLoading ? (
