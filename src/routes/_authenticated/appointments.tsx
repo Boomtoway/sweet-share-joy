@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { listAppointments, updateAppointmentStatus } from "@/lib/appointments/appointments.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { sendReminderNow, listReminderLogs } from "@/lib/appointments/reminders.functions";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar, CheckCircle2, XCircle, Clock, Loader2, Bell, History } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/appointments")({
   component: AppointmentsPage,
@@ -69,6 +71,18 @@ function AppointmentsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
   });
 
+  const sendNowFn = useServerFn(sendReminderNow);
+  const sendNow = useMutation({
+    mutationFn: (id: string) => sendNowFn({ data: { id, tier: "manual" } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success("Reminder sent");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Send failed"),
+  });
+
+  const [historyId, setHistoryId] = useState<string | null>(null);
+
   const filtered = useMemo(() => {
     const now = new Date();
     const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
@@ -87,6 +101,14 @@ function AppointmentsPage() {
     };
   }, [appts]);
 
+  const renderReminderBadges = (a: Appt) => (
+    <div className="flex gap-1 flex-wrap">
+      <Badge variant={(a as any).reminder_24h_sent ? "default" : "outline"} className="text-xs">24h</Badge>
+      <Badge variant={(a as any).reminder_1h_sent ? "default" : "outline"} className="text-xs">1h</Badge>
+      <Badge variant={(a as any).reminder_15m_sent ? "default" : "outline"} className="text-xs">15m</Badge>
+    </div>
+  );
+
   const renderTable = (rows: Appt[]) => (
     <Card>
       <CardContent className="p-0">
@@ -98,6 +120,7 @@ function AppointmentsPage() {
               <TableHead>Service Needed</TableHead>
               <TableHead>Date & Time</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Reminders</TableHead>
               <TableHead>Notes</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -105,7 +128,7 @@ function AppointmentsPage() {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No appointments
                 </TableCell>
               </TableRow>
@@ -117,8 +140,20 @@ function AppointmentsPage() {
                 <TableCell>{a.service_needed ?? "—"}</TableCell>
                 <TableCell>{fmtDateTime(a)}</TableCell>
                 <TableCell><Badge variant={statusVariant(a.status)}>{a.status}</Badge></TableCell>
+                <TableCell>{renderReminderBadges(a)}</TableCell>
                 <TableCell className="max-w-xs truncate">{a.notes ?? "—"}</TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right space-x-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={sendNow.isPending}
+                    onClick={() => sendNow.mutate(a.id)}
+                  >
+                    <Bell className="h-3 w-3 mr-1" />Send Reminder Now
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setHistoryId(a.id)}>
+                    <History className="h-3 w-3 mr-1" />History
+                  </Button>
                   {(a.status === "scheduled" || a.status === "confirmed") && (
                     <>
                       <Button size="sm" variant="outline" onClick={() => update.mutate({ id: a.id, status: "completed" })}>
@@ -163,6 +198,42 @@ function AppointmentsPage() {
           <TabsContent value="cancelled">{renderTable(filtered.cancelled)}</TabsContent>
         </Tabs>
       )}
+      <ReminderHistoryDialog id={historyId} onClose={() => setHistoryId(null)} />
     </div>
+  );
+}
+
+function ReminderHistoryDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const fn = useServerFn(listReminderLogs);
+  const { data: logs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["reminder-logs", id],
+    queryFn: () => fn({ data: { appointment_id: id! } }),
+    enabled: !!id,
+  });
+  return (
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Reminder History</DialogTitle></DialogHeader>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
+        ) : logs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No reminders sent yet.</p>
+        ) : (
+          <div className="space-y-2 max-h-[60vh] overflow-auto">
+            {logs.map((l) => (
+              <div key={l.id} className="border rounded p-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">{l.message}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
+                </div>
+                {l.metadata?.message && (
+                  <p className="text-xs text-muted-foreground mt-1">{l.metadata.message}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
