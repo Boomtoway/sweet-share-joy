@@ -209,6 +209,7 @@ function ClientsPage() {
                   <TableHead>Workspace</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -241,6 +242,20 @@ function ClientsPage() {
                       >
                         {c.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const pw = window.prompt(`Set new password for ${c.email} (min 6 chars):`);
+                          if (!pw) return;
+                          if (pw.length < 6) return toast.error("Password too short");
+                          resetMut.mutate({ id: c.id, password: pw });
+                        }}
+                      >
+                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset password
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
