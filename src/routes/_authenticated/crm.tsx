@@ -193,6 +193,29 @@ function CrmPage() {
           {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
           Sync Conversations
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={repairing}
+          onClick={async () => {
+            setRepairing(true);
+            try {
+              const r = await repairFn();
+              toast.success(
+                `Repaired: ${r.names_updated} names, ${r.phones_updated} phones, ${r.last_messages_updated} messages · merged ${r.duplicates_removed} duplicates · removed ${r.empty_leads_deleted} empty`,
+                { duration: 6000 },
+              );
+              if (workspaceId) await load(workspaceId);
+            } catch (e: any) {
+              toast.error(e?.message ?? "Repair failed");
+            } finally {
+              setRepairing(false);
+            }
+          }}
+        >
+          {repairing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wrench className="h-4 w-4 mr-1" />}
+          Repair CRM Data
+        </Button>
         <div className="ml-auto text-xs text-muted-foreground">
           Drag cards between columns. Stages auto-detect from AI conversations.
         </div>
