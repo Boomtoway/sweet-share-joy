@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import {
   getMyBilling,
   requestRenewal,
-  recordPaymentSlip,
+  createPaymentRequest,
   getSlipSignedUrl,
 } from "@/lib/billing/billing.functions";
 import { supabase } from "@/integrations/supabase/client";
