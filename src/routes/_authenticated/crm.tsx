@@ -306,6 +306,8 @@ function CrmPage() {
               </div>
               <Field label="Business name"><Input value={active.business_name ?? ""} onChange={(e) => saveActive({ business_name: e.target.value })} /></Field>
               <Field label="Service interest"><Input value={active.service_interest ?? ""} onChange={(e) => saveActive({ service_interest: e.target.value })} /></Field>
+              <Field label="Budget"><Input value={active.budget ?? ""} placeholder="e.g. LKR 50000" onChange={(e) => saveActive({ budget: e.target.value })} /></Field>
+
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Stage">
