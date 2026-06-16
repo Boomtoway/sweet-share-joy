@@ -43,6 +43,7 @@ function AuthenticatedLayout() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { role, loading: roleLoading } = useRole();
+  const { expired, loading: subLoading } = useSubscription();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
 
   useEffect(() => {
@@ -51,6 +52,16 @@ function AuthenticatedLayout() {
       navigate({ to: "/dashboard", replace: true });
     }
   }, [role, roleLoading, pathname, navigate]);
+
+  useEffect(() => {
+    if (subLoading) return;
+    if (!expired) return;
+    if (pathname === "/subscription-expired") return;
+    if (SUBSCRIPTION_BLOCKED.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      navigate({ to: "/subscription-expired", replace: true });
+    }
+  }, [expired, subLoading, pathname, navigate]);
+
 
   const handleSignOut = async () => {
     await signOut();
