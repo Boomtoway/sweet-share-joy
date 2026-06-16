@@ -8,6 +8,7 @@ import {
   updateClient,
   listWorkspaces,
   resetClientPassword,
+  sendInviteEmail,
 } from "@/lib/clients/clients.functions";
 import { useRole } from "@/hooks/use-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Users, KeyRound } from "lucide-react";
+import { Plus, Users, KeyRound, Mail } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   head: () => ({ meta: [{ title: "Clients — Admin" }] }),
@@ -43,6 +44,7 @@ function ClientsPage() {
   const create = useServerFn(createClientFn);
   const update = useServerFn(updateClient);
   const resetPw = useServerFn(resetClientPassword);
+  const invite = useServerFn(sendInviteEmail);
   const qc = useQueryClient();
 
   const clientsQ = useQuery({ queryKey: ["admin-clients"], queryFn: () => list(), enabled: role === "admin" });
@@ -71,6 +73,12 @@ function ClientsPage() {
     mutationFn: (data: any) => resetPw({ data }),
     onSuccess: () => toast.success("Password reset"),
     onError: (e: any) => toast.error(e?.message ?? "Failed to reset password"),
+  });
+
+  const inviteMut = useMutation({
+    mutationFn: (data: any) => invite({ data }),
+    onSuccess: (r: any) => toast.success(`Invite email sent to ${r?.email ?? "client"}`),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to send invite"),
   });
 
   const [open, setOpen] = useState(false);
@@ -243,7 +251,17 @@ function ClientsPage() {
                         {c.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!window.confirm(`Send password-reset / invite email to ${c.email}?`)) return;
+                          inviteMut.mutate({ id: c.id });
+                        }}
+                      >
+                        <Mail className="h-3.5 w-3.5 mr-1" /> Send Invite
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -254,7 +272,7 @@ function ClientsPage() {
                           resetMut.mutate({ id: c.id, password: pw });
                         }}
                       >
-                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset password
+                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset Password
                       </Button>
                     </TableCell>
                   </TableRow>

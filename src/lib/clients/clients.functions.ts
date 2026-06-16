@@ -50,75 +50,99 @@ export const createClient = createServerFn({ method: "POST" })
     await assertAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    if (!data.password && !data.send_invite) {
+      throw new Error("Provide a password or enable Send Invite Email");
+    }
+
+    // 1) Ensure workspace exists (create if needed). Track for rollback.
     let workspaceId = data.workspace_id ?? null;
+    let createdWorkspace = false;
     if (!workspaceId) {
       const { data: ws, error: wErr } = await supabaseAdmin
         .from("workspaces")
         .insert({ owner_id: context.userId, name: data.workspace_name || data.business_name })
         .select("id")
         .single();
-      if (wErr) throw new Error(wErr.message);
+      if (wErr) throw new Error(`Workspace creation failed: ${wErr.message}`);
       workspaceId = ws.id;
+      createdWorkspace = true;
       await supabaseAdmin.from("ai_settings").insert({ workspace_id: workspaceId });
     }
 
-    if (!data.password && !data.send_invite) {
-      throw new Error("Provide a password or enable Send Invite Email");
-    }
-
+    // 2) Create the Supabase Auth user FIRST. If this fails, rollback workspace.
     let userId: string;
     let inviteSent = false;
-
-    if (data.send_invite) {
-      const { data: invited, error: iErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
-        data: {
-          full_name: data.full_name,
-          business_name: data.business_name,
-          plan: data.plan,
-          app_role: "client",
-          workspace_id: workspaceId,
-        },
-      });
-      if (iErr) throw new Error(`Invite failed: ${iErr.message}`);
-      userId = invited.user!.id;
-      inviteSent = true;
-      if (data.password) {
-        const { error: pErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    try {
+      if (data.send_invite) {
+        const { data: invited, error: iErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+          data.email,
+          {
+            data: {
+              full_name: data.full_name,
+              business_name: data.business_name,
+              plan: data.plan,
+              app_role: "client",
+              workspace_id: workspaceId,
+            },
+          }
+        );
+        if (iErr) throw new Error(`Auth invite failed: ${iErr.message}`);
+        userId = invited.user!.id;
+        inviteSent = true;
+        if (data.password) {
+          const { error: pErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            password: data.password,
+            email_confirm: true,
+          });
+          if (pErr) throw new Error(`Set password failed: ${pErr.message}`);
+        }
+      } else {
+        const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
+          email: data.email,
           password: data.password,
           email_confirm: true,
+          user_metadata: {
+            full_name: data.full_name,
+            business_name: data.business_name,
+            plan: data.plan,
+            app_role: "client",
+            workspace_id: workspaceId,
+          },
         });
-        if (pErr) throw new Error(`Set password failed: ${pErr.message}`);
+        if (cErr) throw new Error(`Auth user creation failed: ${cErr.message}`);
+        userId = created.user!.id;
       }
-    } else {
-      const { data: created, error: cErr } = await supabaseAdmin.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: data.full_name,
-          business_name: data.business_name,
-          plan: data.plan,
-          app_role: "client",
-          workspace_id: workspaceId,
-        },
-      });
-      if (cErr) throw new Error(`Auth user creation failed: ${cErr.message}`);
-      userId = created.user!.id;
+    } catch (e) {
+      if (createdWorkspace && workspaceId) {
+        await supabaseAdmin.from("ai_settings").delete().eq("workspace_id", workspaceId);
+        await supabaseAdmin.from("workspaces").delete().eq("id", workspaceId);
+      }
+      throw e;
     }
 
-    // Trigger inserts profile + role; ensure values are correct in case metadata differed
-    await supabaseAdmin.from("profiles").update({
-      workspace_id: workspaceId,
-      full_name: data.full_name,
-      email: data.email,
-      business_name: data.business_name,
-      plan: data.plan,
-      status: "active",
-    }).eq("id", userId);
-    await supabaseAdmin.from("user_roles").upsert(
-      { user_id: userId, role: "client" },
-      { onConflict: "user_id,role" }
-    );
+    // 3) Sync profile + role (trigger creates them; we ensure correct values).
+    try {
+      await supabaseAdmin.from("profiles").update({
+        workspace_id: workspaceId,
+        full_name: data.full_name,
+        email: data.email,
+        business_name: data.business_name,
+        plan: data.plan,
+        status: "active",
+      }).eq("id", userId);
+      await supabaseAdmin.from("user_roles").upsert(
+        { user_id: userId, role: "client" },
+        { onConflict: "user_id,role" }
+      );
+    } catch (e) {
+      // Rollback auth user + workspace so admin can retry cleanly
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (createdWorkspace && workspaceId) {
+        await supabaseAdmin.from("ai_settings").delete().eq("workspace_id", workspaceId);
+        await supabaseAdmin.from("workspaces").delete().eq("id", workspaceId);
+      }
+      throw new Error(`Profile setup failed: ${(e as Error).message}`);
+    }
 
     return { id: userId, workspace_id: workspaceId, invite_sent: inviteSent };
   });
@@ -140,6 +164,25 @@ export const resetClientPassword = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+const inviteSchema = z.object({ id: z.string().uuid() });
+
+export const sendInviteEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => inviteSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(data.id);
+    if (uErr || !u?.user?.email) throw new Error(uErr?.message ?? "User has no email");
+    // Use password recovery link so existing users can reset/login without re-creating account
+    const { error } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: u.user.email,
+    });
+    if (error) throw new Error(`Send invite failed: ${error.message}`);
+    return { ok: true, email: u.user.email };
   });
 
 const updateSchema = z.object({
