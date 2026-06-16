@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { listFollowups, sendFollowupNow, stopFollowups, getFollowupTestMode, setFollowupTestMode } from "@/lib/followups/followups.functions";
+import { listFollowups, sendFollowupNow, stopFollowups, getFollowupTestMode, setFollowupTestMode, runFollowupCheckNow } from "@/lib/followups/followups.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Send, Loader2, StopCircle, FlaskConical } from "lucide-react";
+import { Send, Loader2, StopCircle, FlaskConical, PlayCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/lead-followups")({
   component: FollowupsPage,
@@ -52,6 +52,7 @@ function FollowupsPage() {
   const stopFn = useServerFn(stopFollowups);
   const getTestFn = useServerFn(getFollowupTestMode);
   const setTestFn = useServerFn(setFollowupTestMode);
+  const runCheckFn = useServerFn(runFollowupCheckNow);
 
   const { data: testModeData } = useQuery<{ test_mode: boolean }>({
     queryKey: ["followup-test-mode"],
@@ -87,6 +88,15 @@ function FollowupsPage() {
     mutationFn: (id: string) => stopFn({ data: { id } }),
     onSuccess: (r: any) => { toast.success(`Cancelled ${r?.cancelled ?? 0}`); invalidate(); },
     onError: (e: any) => toast.error(e?.message ?? "Failed"),
+  });
+
+  const runCheck = useMutation({
+    mutationFn: () => runCheckFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Scanned ${r?.scanned ?? 0} • Created ${r?.created ?? 0} • Sent ${r?.sent ?? 0} • Skipped ${r?.skipped ?? 0}`);
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Check failed"),
   });
 
   const filtered = useMemo(() => ({
@@ -174,6 +184,10 @@ function FollowupsPage() {
             onCheckedChange={(v) => toggleTest.mutate(v)}
           />
         </div>
+        <Button onClick={() => runCheck.mutate()} disabled={runCheck.isPending}>
+          {runCheck.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-2" />}
+          Run Follow-up Check Now
+        </Button>
       </div>
 
       {isLoading ? (
