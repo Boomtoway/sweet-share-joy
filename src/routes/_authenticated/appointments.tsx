@@ -4,12 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { listAppointments, updateAppointmentStatus } from "@/lib/appointments/appointments.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { sendReminderNow, listReminderLogs } from "@/lib/appointments/reminders.functions";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Calendar, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar, CheckCircle2, XCircle, Clock, Loader2, Bell, History } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/appointments")({
   component: AppointmentsPage,
