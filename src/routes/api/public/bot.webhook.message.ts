@@ -723,28 +723,32 @@ async function generateAndSend(args: {
     // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
     // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
     // and message-history recipients are never used as WhatsApp numbers.
-    const originalPhone = contact?.phone ?? fromPhone ?? "";
+    const phone = contact?.phone ?? contact?.whatsapp_number ?? contact?.sender_number ?? fromPhone ?? "";
     const remoteJidForSend = remoteJid || conversation.remote_jid || contact?.remote_jid || "";
     const extractedWhatsappNumber = extractWhatsappSendNumber(
-      remoteJid,
-      conversation.remote_jid,
       conversation.whatsapp_number,
       conversation.sender_number,
-      contact?.remote_jid,
       contact?.whatsapp_number,
       contact?.sender_number,
       fromPhone,
+      remoteJid,
+      conversation.remote_jid,
+      contact?.remote_jid,
       contact?.phone,
     );
     const to = extractedWhatsappNumber;
     console.log("SEND_TO_NUMBER", {
-      original_phone: originalPhone,
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
       remote_jid: remoteJidForSend,
       extracted_whatsapp_number: extractedWhatsappNumber,
       final_send_number: to,
     });
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
-      original_phone: originalPhone,
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
       remote_jid: remoteJidForSend,
       extracted_whatsapp_number: extractedWhatsappNumber,
       final_send_number: to,
@@ -762,7 +766,7 @@ async function generateAndSend(args: {
         supabaseAdmin,
         workspaceId,
         "VPS_ERROR",
-        { error: err, original_phone: originalPhone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
+        { error: err, conversation_id: conversation.id, contact_id: contact.id, phone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(err);
