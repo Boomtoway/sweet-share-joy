@@ -207,6 +207,7 @@ function CrmPage() {
             setRepairing(true);
             try {
               const r = await repairFn();
+              console.log("CRM_SYNC", r);
               toast.success(
                 `Repaired: ${r.names_updated} names, ${r.phones_updated} phones, ${r.last_messages_updated} messages · merged ${r.duplicates_removed} duplicates · removed ${r.empty_leads_deleted} empty`,
                 { duration: 6000 },
