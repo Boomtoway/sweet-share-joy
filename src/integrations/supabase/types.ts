@@ -524,6 +524,87 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          amount: number
+          balance_amount: number
+          created_at: string
+          customer_name: string | null
+          due_date: string | null
+          id: string
+          invoice_number: string
+          last_reminder_at: string | null
+          lead_id: string | null
+          notes: string | null
+          paid_amount: number
+          paid_at: string | null
+          phone: string | null
+          reminder_stage: string | null
+          sent_at: string | null
+          service: string | null
+          status: Database["public"]["Enums"]["invoice_status"]
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          amount?: number
+          balance_amount?: number
+          created_at?: string
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number: string
+          last_reminder_at?: string | null
+          lead_id?: string | null
+          notes?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          phone?: string | null
+          reminder_stage?: string | null
+          sent_at?: string | null
+          service?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          balance_amount?: number
+          created_at?: string
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_number?: string
+          last_reminder_at?: string | null
+          lead_id?: string | null
+          notes?: string | null
+          paid_amount?: number
+          paid_at?: string | null
+          phone?: string | null
+          reminder_stage?: string | null
+          sent_at?: string | null
+          service?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_followups: {
         Row: {
           contact_id: string | null
@@ -1068,6 +1149,7 @@ export type Database = {
       channel_status: "disconnected" | "connecting" | "connected" | "error"
       channel_type: "whatsapp" | "messenger" | "instagram"
       conversation_status: "open" | "snoozed" | "closed" | "human"
+      invoice_status: "draft" | "sent" | "partially_paid" | "paid" | "overdue"
       lead_stage:
         | "new"
         | "contacted"
@@ -1219,6 +1301,7 @@ export const Constants = {
       channel_status: ["disconnected", "connecting", "connected", "error"],
       channel_type: ["whatsapp", "messenger", "instagram"],
       conversation_status: ["open", "snoozed", "closed", "human"],
+      invoice_status: ["draft", "sent", "partially_paid", "paid", "overdue"],
       lead_stage: [
         "new",
         "contacted",
