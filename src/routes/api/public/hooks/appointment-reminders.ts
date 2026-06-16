@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/hooks/appointment-reminders")(
             if (result.ok) {
               await supabaseAdmin
                 .from("appointments")
-                .update({ [tierDef.flag]: true })
+                .update({ [tierDef.flag]: true } as any)
                 .eq("id", a.id);
             }
 
