@@ -93,27 +93,43 @@ async function startSock() {
       try {
         if (!m.message || m.key.fromMe) continue;
         const rawJid = m.key.remoteJid;
-        if (!rawJid || rawJid.endsWith('@g.us') || rawJid === 'status@broadcast') continue;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
 
-        // Resolve the real WhatsApp phone JID. For LID messages, Baileys
-        // exposes the phone-number variant via key.senderPn / key.remoteJidAlt.
-        const altCandidates = [
-          m.key.senderPn,
-          m.key.remoteJidAlt,
-          m.key.participantPn,
-          rawJid,
+        const isGroup = rawJid.endsWith('@g.us');
+        const sourceGroupJid = isGroup ? rawJid : null;
+
+        // Priority for resolving the real customer phone JID:
+        //   1. participantPn (phone-number variant of group participant)
+        //   2. participant if it is an @s.whatsapp.net jid (never @lid)
+        //   3. senderPn / remoteJidAlt (LID -> phone mapping for DMs)
+        //   4. remoteJid if it is an @s.whatsapp.net jid
+        // @lid and @g.us are never valid customer phone identifiers.
+        const participant = m.key.participant ?? null;
+        const participantPn = m.key.participantPn ?? null;
+        const senderPn = m.key.senderPn ?? null;
+        const remoteJidAlt = m.key.remoteJidAlt ?? null;
+
+        const phoneCandidates = [
+          participantPn,
+          participant && participant.endsWith('@s.whatsapp.net') ? participant : null,
+          senderPn,
+          remoteJidAlt && remoteJidAlt.endsWith('@s.whatsapp.net') ? remoteJidAlt : null,
+          !isGroup && rawJid.endsWith('@s.whatsapp.net') ? rawJid : null,
         ].filter(Boolean);
-        const senderNumber =
-          altCandidates.map((j) => normalizeLkWhatsappNumber(j)).find(Boolean) ?? null;
-        const phoneJid = senderNumber ? `${senderNumber}@s.whatsapp.net` : null;
 
-        if (!phoneJid) {
-          log.warn({ rawJid, altCandidates }, 'skip: no phone JID resolvable (LID only)');
+        const senderNumber =
+          phoneCandidates.map((j) => normalizeLkWhatsappNumber(j)).find(Boolean) ?? null;
+
+        if (!senderNumber) {
+          log.warn(
+            { rawJid, participant, participantPn, senderPn, remoteJidAlt, isGroup },
+            'SKIP_INVALID_SENDER: no resolvable phone (group/@lid only)',
+          );
           continue;
         }
 
-        const remoteJid = phoneJid; // canonical @s.whatsapp.net JID
-        const from = senderNumber;  // real phone number, e.g. 94740123466
+        const remoteJid = `${senderNumber}@s.whatsapp.net`;
+        const from = senderNumber;
 
         const body =
           m.message.conversation ??
@@ -122,7 +138,10 @@ async function startSock() {
           m.message.videoMessage?.caption ??
           '';
         const name = m.pushName ?? from;
-        log.info({ rawJid, remoteJid, from, senderPn: m.key.senderPn, remoteJidAlt: m.key.remoteJidAlt, participantPn: m.key.participantPn }, 'INCOMING_MESSAGE');
+        log.info(
+          { rawJid, isGroup, sourceGroupJid, remoteJid, from, participant, participantPn, senderPn, remoteJidAlt },
+          'INCOMING_MESSAGE',
+        );
 
         const res = await fetch(LOVABLE_WEBHOOK_URL, {
           method: 'POST',
@@ -131,17 +150,22 @@ async function startSock() {
             workspace_id: WORKSPACE_ID,
             secret: WEBHOOK_SECRET,
             from,
+            phone: from,
             remote_jid: remoteJid,
             whatsapp_number: from,
             sender_number: from,
-            senderPn: m.key.senderPn,
-            remoteJidAlt: m.key.remoteJidAlt,
-            participantPn: m.key.participantPn,
+            source_group_jid: sourceGroupJid,
+            is_group: isGroup,
+            participant,
+            participantPn,
+            senderPn,
+            remoteJidAlt,
             contact_name: name,
             body,
             external_id: m.key.id,
           }),
         });
+
 
 
         const data = await res.json().catch(() => ({}));
