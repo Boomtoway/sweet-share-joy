@@ -17,8 +17,19 @@ export const Route = createFileRoute("/api/public/hooks/lead-followups")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const now = new Date();
 
+        // Per-workspace test-mode map — TEST timings are smallest, so use them
+        // as the conservative outer scan window when any workspace has them on.
+        const { data: settingsRows } = await supabaseAdmin
+          .from("ai_settings")
+          .select("workspace_id, followup_test_mode");
+        const testModeByWs = new Map<string, boolean>();
+        for (const r of settingsRows ?? []) testModeByWs.set((r as any).workspace_id, !!(r as any).followup_test_mode);
+
+        const anyTest = Array.from(testModeByWs.values()).some(Boolean);
+        const minThresholdMs = anyTest ? TEST_FOLLOWUP_TIERS[0].thresholdMs : PROD_FOLLOWUP_TIERS[0].thresholdMs;
+        const oldestThreshold = new Date(now.getTime() - minThresholdMs);
+
         // --- Step 1: schedule new follow-ups ---
-        const oldestThreshold = new Date(now.getTime() - FOLLOWUP_TIERS[0].thresholdMs);
         const { data: convs, error: convErr } = await supabaseAdmin
           .from("conversations")
           .select("id, workspace_id, contact_id, last_message_at, status, contact:contacts(id, name, phone, whatsapp_number, sender_number, remote_jid, human_takeover, is_blacklisted)")
