@@ -42,6 +42,7 @@ function ClientsPage() {
   const wsList = useServerFn(listWorkspaces);
   const create = useServerFn(createClientFn);
   const update = useServerFn(updateClient);
+  const resetPw = useServerFn(resetClientPassword);
   const qc = useQueryClient();
 
   const clientsQ = useQuery({ queryKey: ["admin-clients"], queryFn: () => list(), enabled: role === "admin" });
@@ -49,8 +50,8 @@ function ClientsPage() {
 
   const createMut = useMutation({
     mutationFn: (data: any) => create({ data }),
-    onSuccess: () => {
-      toast.success("Client created");
+    onSuccess: (res: any) => {
+      toast.success(res?.invite_sent ? "Client created — invite email sent" : "Client created");
       qc.invalidateQueries({ queryKey: ["admin-clients"] });
       setOpen(false);
     },
@@ -66,12 +67,19 @@ function ClientsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to update"),
   });
 
+  const resetMut = useMutation({
+    mutationFn: (data: any) => resetPw({ data }),
+    onSuccess: () => toast.success("Password reset"),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to reset password"),
+  });
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: "", email: "", password: "", business_name: "",
     plan: "starter" as "starter" | "growth" | "pro",
     workspace_id: "__new__" as string,
     workspace_name: "",
+    send_invite: false,
   });
 
   if (loading || role !== "admin") return null;
