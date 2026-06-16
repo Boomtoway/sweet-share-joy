@@ -27,6 +27,29 @@ const cors = {
 
 const whatsappJidPattern = /^[^@\s]+@s\.whatsapp\.net$/i;
 
+function getPath(obj: any, path: string): unknown {
+  return path.split(".").reduce((acc, key) => (acc && typeof acc === "object" ? acc[key] : undefined), obj);
+}
+
+function inboundSenderCandidates(body: z.infer<typeof WebhookSchema>): unknown[] {
+  const raw: any = body;
+  return [
+    body.whatsapp_number,
+    body.sender_number,
+    getPath(raw, "key.senderPn"),
+    getPath(raw, "key.remoteJidAlt"),
+    getPath(raw, "key.participantPn"),
+    raw.senderPn,
+    raw.remoteJidAlt,
+    raw.participantPn,
+    body.from,
+    body.phone,
+    body.remote_jid,
+    body.remoteJid,
+    body.jid,
+  ];
+}
+
 function validWhatsappJid(value: unknown): string | null {
   const jid = typeof value === "string" ? value.trim() : "";
   return whatsappJidPattern.test(jid) ? jid : null;
@@ -184,14 +207,27 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             sender_number: body.sender_number,
             phone: body.phone,
             from: body.from,
+            senderPn: (body as any).senderPn,
+            remoteJidAlt: (body as any).remoteJidAlt,
+            participantPn: (body as any).participantPn,
+            key_senderPn: getPath(body, "key.senderPn"),
+            key_remoteJidAlt: getPath(body, "key.remoteJidAlt"),
+            key_participantPn: getPath(body, "key.participantPn"),
           };
           const rawFrom = String(body.remote_jid || body.remoteJid || body.jid || body.whatsapp_number || body.sender_number || body.phone || body.from || "");
           const inboundText = body.body ?? body.message ?? "";
           // STRICT: the phone number may only come from original WhatsApp sender fields.
           // Never derive it from conversation_id/contact_id/lead_id or previous message recipients.
-          const sourcePhone = extractWhatsappSendNumber(body.remote_jid, body.remoteJid, body.jid, body.whatsapp_number, body.sender_number, body.phone, body.from);
+          const sourcePhone = extractWhatsappSendNumber(...inboundSenderCandidates(body));
           if (!sourcePhone) {
-            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, raw_sender_fields: rawSenderFields, sourcePhone }, "error");
+            await logStep(supabaseAdmin, workspaceId, "INCOMING_INVALID_SENDER_NUMBER", {
+              contact_id: null,
+              phone: body.phone ?? body.from ?? null,
+              remote_jid: body.remote_jid ?? body.remoteJid ?? body.jid ?? null,
+              final_send_number: "",
+              rawFrom,
+              raw_sender_fields: rawSenderFields,
+            }, "error");
             return new Response(JSON.stringify({ error: "Invalid WhatsApp number" }), { status: 400, headers: cors });
           }
           const remote_jid = `${sourcePhone}@s.whatsapp.net`;
@@ -204,6 +240,15 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY FROM:", body.from);
           console.log("REMOTE_JID SAVING:", remote_jid);
           console.log("REMOTE JID FOUND:", remote_jid);
+
+          queueLog(request, supabaseAdmin, workspaceId, "Incoming Message", {
+            contact_id: null,
+            phone: sourcePhone,
+            remote_jid,
+            final_send_number: sourcePhone,
+            raw_sender_fields: rawSenderFields,
+            preview: inboundText.slice(0, 80),
+          });
 
           queueLog(request, supabaseAdmin, workspaceId, "inbound_received", {
             from: body.from,
@@ -413,6 +458,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             conversation_remote_jid: remote_jid,
             contact_remote_jid: contact.remote_jid ?? null,
             phone_saved: contact.phone,
+          });
+          queueLog(request, supabaseAdmin, workspaceId, "Save Conversation", {
+            conversation_id: conv.id,
+            contact_id: contact.id,
+            phone: contact.phone,
+            remote_jid,
+            final_send_number: sourcePhone,
           });
 
           // ---- Run inline. Background tasks (EdgeRuntime.waitUntil /
@@ -720,7 +772,7 @@ async function generateAndSend(args: {
     };
 
     // Exact AI auto-reply send target assignment:
-    // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
+    // verified sender-number fields → inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
     // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
     // and message-history recipients are never used as WhatsApp numbers.
     const phone = contact?.phone ?? contact?.whatsapp_number ?? contact?.sender_number ?? fromPhone ?? "";
@@ -737,6 +789,14 @@ async function generateAndSend(args: {
       contact?.phone,
     );
     const to = extractedWhatsappNumber;
+    await logStep(supabaseAdmin, workspaceId, "AI Generation", {
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
+      remote_jid: remoteJidForSend,
+      final_send_number: to,
+      message_id: outboundMsg?.id,
+    });
     console.log("SEND_TO_NUMBER", {
       conversation_id: conversation.id,
       contact_id: contact.id,
@@ -786,6 +846,14 @@ async function generateAndSend(args: {
       message: replyText,
       message_id: outboundMsg?.id,
     });
+    await logStep(supabaseAdmin, workspaceId, "VPS Send Request", {
+      contact_id: contact.id,
+      phone,
+      remote_jid: remoteJidForSend,
+      final_send_number: to,
+      url: VPS_SEND_URL,
+      message_id: outboundMsg?.id,
+    });
     await logStep(supabaseAdmin, workspaceId, "VPS_URL", { url: VPS_SEND_URL, message_id: outboundMsg?.id });
     await logStep(supabaseAdmin, workspaceId, "REQUEST_HEADERS", { headers: requestHeaders, message_id: outboundMsg?.id });
     await logStep(supabaseAdmin, workspaceId, "REQUEST_BODY", { body: requestBody, message_id: outboundMsg?.id });
@@ -795,6 +863,13 @@ async function generateAndSend(args: {
     const debugStr = `HTTP ${result.status} ${responseText}`;
 
     console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      "WhatsApp Delivery Result",
+      { contact_id: contact.id, phone, remote_jid: remoteJidForSend, final_send_number: to, status: result.status, ok: result.ok, body: responseText, message_id: outboundMsg?.id },
+      result.ok ? "info" : "error",
+    );
     await logStep(
       supabaseAdmin,
       workspaceId,
