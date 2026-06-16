@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { listFollowups, sendFollowupNow, stopFollowups, getFollowupTestMode, setFollowupTestMode } from "@/lib/followups/followups.functions";
+import { listFollowups, sendFollowupNow, stopFollowups, getFollowupTestMode, setFollowupTestMode, runFollowupCheckNow } from "@/lib/followups/followups.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
