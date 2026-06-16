@@ -10,9 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Search, MessageCircle, TrendingUp, DollarSign, Target, CalendarClock, Trash2, RefreshCw, Wrench } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
-import { syncConversationsToCrm } from "@/lib/crm/crm.functions";
+import { syncConversationsToCrm, repairCrmData } from "@/lib/crm/crm.functions";
 
 export const Route = createFileRoute("/_authenticated/crm")({
   component: CrmPage,
@@ -73,7 +73,9 @@ function CrmPage() {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Lead | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [repairing, setRepairing] = useState(false);
   const syncFn = useServerFn(syncConversationsToCrm);
+  const repairFn = useServerFn(repairCrmData);
 
   useEffect(() => {
     (async () => {
@@ -190,6 +192,29 @@ function CrmPage() {
         >
           {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
           Sync Conversations
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={repairing}
+          onClick={async () => {
+            setRepairing(true);
+            try {
+              const r = await repairFn();
+              toast.success(
+                `Repaired: ${r.names_updated} names, ${r.phones_updated} phones, ${r.last_messages_updated} messages · merged ${r.duplicates_removed} duplicates · removed ${r.empty_leads_deleted} empty`,
+                { duration: 6000 },
+              );
+              if (workspaceId) await load(workspaceId);
+            } catch (e: any) {
+              toast.error(e?.message ?? "Repair failed");
+            } finally {
+              setRepairing(false);
+            }
+          }}
+        >
+          {repairing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wrench className="h-4 w-4 mr-1" />}
+          Repair CRM Data
         </Button>
         <div className="ml-auto text-xs text-muted-foreground">
           Drag cards between columns. Stages auto-detect from AI conversations.
