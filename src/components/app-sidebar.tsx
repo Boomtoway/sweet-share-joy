@@ -84,6 +84,7 @@ const groups: Group[] = [
     items: [
       { title: "Clients", url: "/clients", icon: Briefcase, roles: ["admin"] },
       { title: "Subscriptions", url: "/subscriptions", icon: CreditCard, roles: ["admin"] },
+      { title: "Payment Approvals", url: "/payments", icon: Wallet, roles: ["admin"] },
     ],
   },
 
