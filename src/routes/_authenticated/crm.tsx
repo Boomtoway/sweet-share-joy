@@ -215,7 +215,7 @@ function CrmPage() {
     <div className="flex h-[calc(100vh-4rem)] flex-col gap-4 p-4">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard icon={<Target className="h-4 w-4" />} label="Total leads" value={String(total)} />
-        <StatCard icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Conversion" value={`${conversion}%`} hint={`${won} won / ${decided} closed`} />
+        <StatCard icon={<TrendingUp className="h-4 w-4 text-emerald-600" />} label="Conversion" value={`${conversion}%`} hint={`${won} won / ${total} total`} />
         <StatCard icon={<DollarSign className="h-4 w-4 text-emerald-600" />} label="Revenue won" value={fmtCurrency(revenueWon)} />
         <StatCard icon={<DollarSign className="h-4 w-4 text-amber-600" />} label="Pipeline value" value={fmtCurrency(pipelineValue)} />
         <StatCard icon={<CalendarClock className="h-4 w-4 text-violet-600" />} label="Follow-ups due ≤24h" value={String(dueSoon)} />
