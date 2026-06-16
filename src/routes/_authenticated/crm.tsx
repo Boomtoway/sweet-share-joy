@@ -231,11 +231,12 @@ function CrmPage() {
                         onClick={() => setActive(l)}
                         className="cursor-grab rounded-md border bg-card p-3 shadow-sm hover:border-primary transition-colors">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="font-medium text-sm truncate">{l.name || l.phone || "Untitled"}</div>
+                          <div className="font-medium text-sm truncate">{l.name || l.phone || l.business_name || "Lead"}</div>
                           {l.value > 0 && <Badge variant="outline" className="shrink-0">{fmtCurrency(Number(l.value))}</Badge>}
                         </div>
                         {l.business_name && <div className="text-xs text-muted-foreground truncate">{l.business_name}</div>}
-                        {l.service_interest && <div className="text-xs text-muted-foreground truncate mt-0.5">{l.service_interest}</div>}
+                        {l.service_interest && <div className="text-xs text-muted-foreground truncate mt-0.5">📌 {l.service_interest}</div>}
+                        {l.last_message && <div className="text-xs text-muted-foreground italic truncate mt-1">"{l.last_message}"</div>}
                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                           <span className="truncate">{l.phone ?? "—"}</span>
                           {l.follow_up_date && <span className="ml-2 shrink-0">📅 {fmtDate(l.follow_up_date)}</span>}
