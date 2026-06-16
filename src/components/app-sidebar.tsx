@@ -18,6 +18,7 @@ import {
   Calendar,
   Send,
   Kanban,
+  DollarSign,
 } from "lucide-react";
 import {
   Sidebar,
