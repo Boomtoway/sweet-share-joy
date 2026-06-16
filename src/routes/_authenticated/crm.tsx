@@ -42,6 +42,7 @@ interface Lead {
   business_name: string | null;
   service_interest: string | null;
   source: string | null;
+  budget: string | null;
   notes: string | null;
   last_message: string | null;
   appointment_date: string | null;
