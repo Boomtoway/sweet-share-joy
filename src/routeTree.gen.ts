@@ -39,6 +39,7 @@ import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authentic
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta.webhook'
 import { Route as ApiPublicHooksLeadFollowupsRouteImport } from './routes/api/public/hooks/lead-followups'
 import { Route as ApiPublicHooksInvoiceRemindersRouteImport } from './routes/api/public/hooks/invoice-reminders'
+import { Route as ApiPublicHooksExpireSubscriptionsRouteImport } from './routes/api/public/hooks/expire-subscriptions'
 import { Route as ApiPublicHooksAppointmentRemindersRouteImport } from './routes/api/public/hooks/appointment-reminders'
 import { Route as ApiPublicBotDebugRouteImport } from './routes/api/public/bot.debug'
 import { Route as ApiPublicBotWebhookMessageRouteImport } from './routes/api/public/bot.webhook.message'
@@ -202,6 +203,12 @@ const ApiPublicHooksInvoiceRemindersRoute =
     path: '/api/public/hooks/invoice-reminders',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksExpireSubscriptionsRoute =
+  ApiPublicHooksExpireSubscriptionsRouteImport.update({
+    id: '/api/public/hooks/expire-subscriptions',
+    path: '/api/public/hooks/expire-subscriptions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAppointmentRemindersRoute =
   ApiPublicHooksAppointmentRemindersRouteImport.update({
     id: '/api/public/hooks/appointment-reminders',
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
   '/api/public/hooks/invoice-reminders': typeof ApiPublicHooksInvoiceRemindersRoute
   '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -283,6 +291,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
   '/api/public/hooks/invoice-reminders': typeof ApiPublicHooksInvoiceRemindersRoute
   '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -319,6 +328,7 @@ export interface FileRoutesById {
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/expire-subscriptions': typeof ApiPublicHooksExpireSubscriptionsRoute
   '/api/public/hooks/invoice-reminders': typeof ApiPublicHooksInvoiceRemindersRoute
   '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
@@ -355,6 +365,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/expire-subscriptions'
     | '/api/public/hooks/invoice-reminders'
     | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/expire-subscriptions'
     | '/api/public/hooks/invoice-reminders'
     | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
@@ -424,6 +436,7 @@ export interface FileRouteTypes {
     | '/_authenticated/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/expire-subscriptions'
     | '/api/public/hooks/invoice-reminders'
     | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
@@ -436,6 +449,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicBotDebugRoute: typeof ApiPublicBotDebugRoute
   ApiPublicHooksAppointmentRemindersRoute: typeof ApiPublicHooksAppointmentRemindersRoute
+  ApiPublicHooksExpireSubscriptionsRoute: typeof ApiPublicHooksExpireSubscriptionsRoute
   ApiPublicHooksInvoiceRemindersRoute: typeof ApiPublicHooksInvoiceRemindersRoute
   ApiPublicHooksLeadFollowupsRoute: typeof ApiPublicHooksLeadFollowupsRoute
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
@@ -654,6 +668,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksInvoiceRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/expire-subscriptions': {
+      id: '/api/public/hooks/expire-subscriptions'
+      path: '/api/public/hooks/expire-subscriptions'
+      fullPath: '/api/public/hooks/expire-subscriptions'
+      preLoaderRoute: typeof ApiPublicHooksExpireSubscriptionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/appointment-reminders': {
       id: '/api/public/hooks/appointment-reminders'
       path: '/api/public/hooks/appointment-reminders'
@@ -742,6 +763,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBotDebugRoute: ApiPublicBotDebugRoute,
   ApiPublicHooksAppointmentRemindersRoute:
     ApiPublicHooksAppointmentRemindersRoute,
+  ApiPublicHooksExpireSubscriptionsRoute:
+    ApiPublicHooksExpireSubscriptionsRoute,
   ApiPublicHooksInvoiceRemindersRoute: ApiPublicHooksInvoiceRemindersRoute,
   ApiPublicHooksLeadFollowupsRoute: ApiPublicHooksLeadFollowupsRoute,
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
