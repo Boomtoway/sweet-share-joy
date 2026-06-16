@@ -29,12 +29,12 @@ export function extractWhatsappSendNumber(...values: unknown[]): string {
 /** Pick only real sender fields; never IDs/history recipients. */
 export function pickRecipient(conversation: any, contact: any): string {
   return extractWhatsappSendNumber(
-    conversation?.remote_jid,
     conversation?.whatsapp_number,
     conversation?.sender_number,
-    contact?.remote_jid,
     contact?.whatsapp_number,
     contact?.sender_number,
+    conversation?.remote_jid,
+    contact?.remote_jid,
     contact?.phone,
   );
 }
