@@ -103,7 +103,11 @@ function CrmPage() {
     if (!workspaceId) return;
     const ch = supabase.channel(`crm-leads-${workspaceId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "leads", filter: `workspace_id=eq.${workspaceId}` },
-        () => load(workspaceId))
+        (payload) => {
+          const tag = payload.eventType === "INSERT" ? "CRM_CREATE" : payload.eventType === "UPDATE" ? "CRM_UPDATE" : "CRM_SYNC";
+          console.log(tag, payload.new ?? payload.old);
+          load(workspaceId);
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [workspaceId]);
