@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { sendViaVps, pickRecipient, normalizeRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
+import { sendViaVps, extractWhatsappSendNumber, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "@/lib/vps/send";
 
 const WebhookSchema = z.object({
   workspace_id: z.string().uuid(),
@@ -10,6 +10,8 @@ const WebhookSchema = z.object({
   remoteJid: z.string().optional(),
   jid: z.string().optional(),
   phone: z.string().optional(),
+  whatsapp_number: z.string().optional(),
+  sender_number: z.string().optional(),
   contact_name: z.string().optional(),
   body: z.string().optional(),
   message: z.string().optional(),
@@ -44,7 +46,7 @@ function normalizeLkPhone(value: unknown): string | null {
   if (phone.startsWith("+")) phone = phone.slice(1);
   if (phone.startsWith("00")) phone = phone.slice(2);
   if (phone.startsWith("0")) phone = `94${phone.slice(1)}`;
-  return /^94\d{9}$/.test(phone) ? phone : null;
+  return /^947\d{8}$/.test(phone) ? phone : null;
 }
 
 function normalizeLkPhoneToJid(value: unknown): string | null {
@@ -174,15 +176,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
           console.log("WEBHOOK BODY:", body);
           workspaceId = body.workspace_id;
           const headerSecret = request.headers.get("x-bot-secret") ?? "";
-          const rawFrom = String(body.from || body.remote_jid || body.remoteJid || body.jid || body.phone || "");
+          const rawFrom = String(body.remote_jid || body.remoteJid || body.jid || body.whatsapp_number || body.sender_number || body.phone || body.from || "");
           const inboundText = body.body ?? body.message ?? "";
-          // STRICT: phone number is ALWAYS remoteJid.split('@')[0]. Never concat or derive
-          // from anything else (no conversation IDs, no internal IDs).
-          let sourcePhone = rawFrom.split("@")[0].replace(/[^\d]/g, "");
-          if (sourcePhone.startsWith("0")) sourcePhone = `94${sourcePhone.slice(1)}`;
-          const isValidWhatsAppNumber = (n: string) => /^[0-9]{10,15}$/.test(n);
-          if (!isValidWhatsAppNumber(sourcePhone)) {
-            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone }, "error");
+          // STRICT: the phone number may only come from original WhatsApp sender fields.
+          // Never derive it from conversation_id/contact_id/lead_id or previous message recipients.
+          const sourcePhone = extractWhatsappSendNumber(body.remote_jid, body.remoteJid, body.jid, body.whatsapp_number, body.sender_number, body.phone, body.from);
+          if (!sourcePhone) {
+            await logStep(supabaseAdmin, workspaceId, "invalid_phone_extracted", { rawFrom, sourcePhone, remote_jid: body.remote_jid, whatsapp_number: body.whatsapp_number, sender_number: body.sender_number, from: body.from }, "error");
             return new Response(JSON.stringify({ error: "Invalid WhatsApp number" }), { status: 400, headers: cors });
           }
           const remote_jid = `${sourcePhone}@s.whatsapp.net`;
@@ -299,21 +299,25 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 workspace_id: workspaceId,
                 phone: sourcePhone,
                 remote_jid,
+                whatsapp_number: sourcePhone,
+                sender_number: sourcePhone,
                 name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
-              })
+              } as any)
               .select()
               .single();
             contact = ins.data;
-          } else if (remote_jid && (contact.remote_jid !== remote_jid || contact.phone !== sourcePhone)) {
+          } else if (remote_jid && (contact.remote_jid !== remote_jid || contact.phone !== sourcePhone || contact.whatsapp_number !== sourcePhone || contact.sender_number !== sourcePhone)) {
             // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
-              .update({ remote_jid, phone: sourcePhone })
+              .update({ remote_jid, phone: sourcePhone, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .eq("id", contact.id);
             contact.remote_jid = remote_jid;
             contact.phone = sourcePhone;
+            contact.whatsapp_number = sourcePhone;
+            contact.sender_number = sourcePhone;
           }
           if (!contact) {
             return new Response(JSON.stringify({ error: "contact failed" }), {
@@ -354,17 +358,19 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .select()
               .single();
             conv = ins.data;
-          } else if (remote_jid && conv.remote_jid !== remote_jid) {
+          } else if (remote_jid && (conv.remote_jid !== remote_jid || conv.whatsapp_number !== sourcePhone || conv.sender_number !== sourcePhone)) {
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             await supabaseAdmin
               .from("conversations")
-              .update({ remote_jid })
+              .update({ remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone } as any)
               .eq("id", conv.id);
             conv.remote_jid = remote_jid;
+            conv.whatsapp_number = sourcePhone;
+            conv.sender_number = sourcePhone;
           }
           if (!conv) {
             return new Response(JSON.stringify({ error: "conv failed" }), {
@@ -702,15 +708,35 @@ async function generateAndSend(args: {
         .eq("id", outboundMsg.id);
     };
 
-    // Shared VPS send — same as manual "Send" button.
-    // Recipient priority matches manual send: contact.phone → contact.remote_jid → conversation.remote_jid → inbound jid.
-    const rawRecipient =
-      contact?.phone || contact?.remote_jid || conversation.remote_jid || remoteJid || "";
-    const to = normalizeRecipient(rawRecipient);
-    console.log("SEND_TO_NUMBER", to);
+    // Exact AI auto-reply send target assignment:
+    // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
+    // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
+    // and message-history recipients are never used as WhatsApp numbers.
+    const originalPhone = contact?.phone ?? fromPhone ?? "";
+    const remoteJidForSend = remoteJid || conversation.remote_jid || contact?.remote_jid || "";
+    const extractedWhatsappNumber = extractWhatsappSendNumber(
+      remoteJid,
+      conversation.remote_jid,
+      conversation.whatsapp_number,
+      conversation.sender_number,
+      contact?.remote_jid,
+      contact?.whatsapp_number,
+      contact?.sender_number,
+      fromPhone,
+      contact?.phone,
+    );
+    const to = extractedWhatsappNumber;
+    console.log("SEND_TO_NUMBER", {
+      original_phone: originalPhone,
+      remote_jid: remoteJidForSend,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
+    });
     await logStep(supabaseAdmin, workspaceId, "SEND_TO_NUMBER", {
-      to,
-      raw_recipient: rawRecipient,
+      original_phone: originalPhone,
+      remote_jid: remoteJidForSend,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
       conversation_remote_jid: conversation.remote_jid,
       contact_remote_jid: contact?.remote_jid,
       contact_phone: contact?.phone,
@@ -718,14 +744,14 @@ async function generateAndSend(args: {
     });
 
     // Strict validation: must start with 94 AND be 10–15 digits.
-    const isValid = /^94\d{9,13}$/.test(to);
+    const isValid = /^947\d{8}$/.test(to);
     if (!to || !isValid) {
       const err = `Invalid WhatsApp number: ${to || "(empty)"}`;
       await logStep(
         supabaseAdmin,
         workspaceId,
         "VPS_ERROR",
-        { error: err, to, raw_recipient: rawRecipient, message_id: outboundMsg?.id },
+        { error: err, original_phone: originalPhone, remote_jid: remoteJidForSend, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, message_id: outboundMsg?.id },
         "error",
       );
       await markFailed(err);

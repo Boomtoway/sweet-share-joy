@@ -66,6 +66,15 @@ interface Lead {
 
 const STAGES: LeadStage[] = ["new", "contacted", "qualified", "proposal", "won", "lost"];
 
+function extractWhatsappSendNumber(...values: unknown[]): string {
+  for (const value of values) {
+    let digits = String(value ?? "").trim().split("@")[0].replace(/\D/g, "");
+    if (digits.startsWith("0")) digits = `94${digits.slice(1)}`;
+    if (/^947\d{8}$/.test(digits)) return digits;
+  }
+  return "";
+}
+
 function ConversationsPage() {
   const sendManualMessage = useServerFn(sendManualWhatsAppMessage);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
@@ -143,15 +152,13 @@ function ConversationsPage() {
   const sendReply = async () => {
     if (!active || !reply.trim() || !workspaceId) return;
     const messageText = reply.trim();
-    const panelRecipient = active.contact?.phone || active.contact?.remote_jid || active.remote_jid || "";
-    // Normalize & validate strictly: ^[0-9]{10,15}$
-    let normalized = String(panelRecipient).split("@")[0].replace(/\D/g, "");
-    if (normalized.startsWith("0")) normalized = `94${normalized.slice(1)}`;
-    if (!/^[0-9]{10,15}$/.test(normalized)) {
+    const panelRecipient = active.remote_jid || active.contact?.remote_jid || active.contact?.phone || "";
+    const normalized = extractWhatsappSendNumber(active.remote_jid, active.contact?.remote_jid, active.contact?.phone);
+    if (!normalized) {
       toast.error("Invalid WhatsApp number");
       return;
     }
-    console.log("PANEL_RECIPIENT", { conversation_id: active.id, panelRecipient, normalized });
+    console.log("PANEL_RECIPIENT", { conversation_id: active.id, original_phone: active.contact?.phone, remote_jid: panelRecipient, extracted_whatsapp_number: normalized, final_send_number: normalized });
     setSending(true);
     try {
       const result = await sendManualMessage({ data: { conversationId: active.id, message: messageText, to: normalized } });

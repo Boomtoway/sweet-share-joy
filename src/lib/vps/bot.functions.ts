@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { sendViaVps, pickRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "./send";
+import { sendViaVps, extractWhatsappSendNumber, pickRecipient, VPS_SEND_URL, VPS_TOKEN, getVpsResponseText } from "./send";
 
 async function getSession(supabase: any, userId: string) {
   const { data: profile } = await supabase
@@ -102,7 +102,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
 
     const { data: conversation, error: conversationError } = await context.supabase
       .from("conversations")
-      .select("id, workspace_id, contact_id, remote_jid")
+      .select("*")
       .eq("id", data.conversationId)
       .eq("workspace_id", workspaceId)
       .single();
@@ -112,31 +112,50 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     if (conversation.contact_id) {
       const { data: c } = await context.supabase
         .from("contacts")
-        .select("id, phone, remote_jid")
+        .select("*")
         .eq("id", conversation.contact_id)
         .maybeSingle();
       contact = c;
     }
 
-    // Recipient priority: explicit `to` from the selected panel (authoritative) →
-    // contact.phone → contact.remote_jid → conversation.remote_jid (last resort, may be stale).
-    const rawRecipient = data.to || contact?.phone || contact?.remote_jid || conversation.remote_jid || "";
-    const to = pickRecipient({ remote_jid: rawRecipient }, null);
+    // Exact manual send target assignment:
+    // selected panel `to` → conversation.remote_jid → contact.remote_jid → contact.phone.
+    // Only values that normalize to a real 947xxxxxxxx WhatsApp number are accepted;
+    // conversation_id/contact_id/lead_id are never candidates.
+    const originalPhone = contact?.phone ?? "";
+    const remoteJid = data.to || conversation.remote_jid || contact?.remote_jid || "";
+    const extractedWhatsappNumber = extractWhatsappSendNumber(
+      data.to,
+      conversation.remote_jid,
+      (conversation as any).whatsapp_number,
+      (conversation as any).sender_number,
+      contact?.remote_jid,
+      contact?.whatsapp_number,
+      contact?.sender_number,
+      contact?.phone,
+    );
+    const to = extractedWhatsappNumber;
 
-    console.log("MANUAL_SEND_START", { conversation_id: conversation.id, raw_recipient: rawRecipient, to });
+    console.log("MANUAL_SEND_START", { conversation_id: conversation.id, original_phone: originalPhone, remote_jid: remoteJid, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to });
     await log(context.supabase, workspaceId, "info", "MANUAL_SEND_START", {
       conversation_id: conversation.id,
-      raw_recipient: rawRecipient,
-      to,
+      original_phone: originalPhone,
+      remote_jid: remoteJid,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
     });
-    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_NUMBER", { to });
+    await log(context.supabase, workspaceId, "info", "MANUAL_SEND_NUMBER", { original_phone: originalPhone, remote_jid: remoteJid, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to });
 
     if (!to) {
       await log(context.supabase, workspaceId, "error", "VPS_ERROR", {
-        error: "no recipient",
+        error: "Invalid WhatsApp number",
         conversation_id: conversation.id,
+        original_phone: originalPhone,
+        remote_jid: remoteJid,
+        extracted_whatsapp_number: extractedWhatsappNumber,
+        final_send_number: to,
       });
-      throw new Error("No recipient phone available for this conversation");
+      throw new Error("Invalid WhatsApp number");
     }
 
     // Call the EXACT SAME sender used by Test VPS Send.
@@ -144,7 +163,7 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
     const responseText = getVpsResponseText(result);
     const debugStr = `FINAL_SEND_NUMBER: ${to} | VPS_RESPONSE: ok ${result.ok} | HTTP ${result.status} ${responseText}`;
 
-    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", { to, ok: result.ok });
+    await log(context.supabase, workspaceId, "info", "FINAL_SEND_NUMBER", { original_phone: originalPhone, remote_jid: remoteJid, extracted_whatsapp_number: extractedWhatsappNumber, final_send_number: to, ok: result.ok });
 
     console.log("MANUAL_SEND_RESPONSE", { status: result.status, ok: result.ok, body: responseText });
     await log(context.supabase, workspaceId, result.ok ? "info" : "error", "MANUAL_SEND_RESPONSE", {
@@ -152,7 +171,10 @@ export const sendManualWhatsAppMessage = createServerFn({ method: "POST" })
       ok: result.ok,
       body: responseText,
       parsed_body: result.body,
-      to,
+      original_phone: originalPhone,
+      remote_jid: remoteJid,
+      extracted_whatsapp_number: extractedWhatsappNumber,
+      final_send_number: to,
     });
 
     // Persist message AFTER send so VPS response is visible under the bubble.

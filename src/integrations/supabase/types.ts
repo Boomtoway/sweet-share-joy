@@ -309,8 +309,10 @@ export type Database = {
           name: string | null
           phone: string | null
           remote_jid: string | null
+          sender_number: string | null
           tags: string[]
           updated_at: string
+          whatsapp_number: string | null
           workspace_id: string
         }
         Insert: {
@@ -326,8 +328,10 @@ export type Database = {
           name?: string | null
           phone?: string | null
           remote_jid?: string | null
+          sender_number?: string | null
           tags?: string[]
           updated_at?: string
+          whatsapp_number?: string | null
           workspace_id: string
         }
         Update: {
@@ -343,8 +347,10 @@ export type Database = {
           name?: string | null
           phone?: string | null
           remote_jid?: string | null
+          sender_number?: string | null
           tags?: string[]
           updated_at?: string
+          whatsapp_number?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -366,9 +372,11 @@ export type Database = {
           id: string
           last_message_at: string | null
           remote_jid: string | null
+          sender_number: string | null
           status: Database["public"]["Enums"]["conversation_status"]
           unread_count: number
           updated_at: string
+          whatsapp_number: string | null
           workspace_id: string
         }
         Insert: {
@@ -379,9 +387,11 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           remote_jid?: string | null
+          sender_number?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           unread_count?: number
           updated_at?: string
+          whatsapp_number?: string | null
           workspace_id: string
         }
         Update: {
@@ -392,9 +402,11 @@ export type Database = {
           id?: string
           last_message_at?: string | null
           remote_jid?: string | null
+          sender_number?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           unread_count?: number
           updated_at?: string
+          whatsapp_number?: string | null
           workspace_id?: string
         }
         Relationships: [

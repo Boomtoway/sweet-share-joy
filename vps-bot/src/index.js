@@ -41,6 +41,12 @@ let currentQR = null;
 let connState = 'disconnected'; // disconnected | connecting | connected
 let lastError = null;
 
+function normalizeLkWhatsappNumber(value) {
+  let digits = String(value ?? '').trim().split('@')[0].replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
+  return /^947\d{8}$/.test(digits) ? digits : null;
+}
+
 async function startSock() {
   connState = 'connecting';
   log.info(AUTH_PATHS, 'Baileys auth storage paths');
@@ -97,16 +103,17 @@ async function startSock() {
           m.key.participantPn,
           rawJid,
         ].filter(Boolean);
-        const phoneJid =
-          altCandidates.find((j) => typeof j === 'string' && j.endsWith('@s.whatsapp.net')) ?? null;
+        const senderNumber =
+          altCandidates.map((j) => normalizeLkWhatsappNumber(j)).find(Boolean) ?? null;
+        const phoneJid = senderNumber ? `${senderNumber}@s.whatsapp.net` : null;
 
         if (!phoneJid) {
           log.warn({ rawJid, altCandidates }, 'skip: no phone JID resolvable (LID only)');
           continue;
         }
 
-        const remoteJid = phoneJid;           // canonical @s.whatsapp.net JID
-        const from = remoteJid.split('@')[0]; // real phone number, e.g. 94740123466
+        const remoteJid = phoneJid; // canonical @s.whatsapp.net JID
+        const from = senderNumber;  // real phone number, e.g. 94740123466
 
         const body =
           m.message.conversation ??
@@ -124,6 +131,8 @@ async function startSock() {
             secret: WEBHOOK_SECRET,
             from,
             remote_jid: remoteJid,
+            whatsapp_number: from,
+            sender_number: from,
             contact_name: name,
             body,
             external_id: m.key.id,
@@ -225,7 +234,7 @@ app.post('/send', async (req, res) => {
     // Normalize to bare digits (E.164 without '+').
     let digits = String(to).trim().split('@')[0].replace(/\D/g, '');
     if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
-    if (!/^[0-9]{10,15}$/.test(digits)) {
+    if (!/^947\d{8}$/.test(digits)) {
       log.error({ to, digits }, 'SEND_INVALID_NUMBER');
       return res.status(400).json({ error: 'invalid whatsapp number', to, digits });
     }
