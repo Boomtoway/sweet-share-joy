@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import logoAsset from "@/assets/logo.png.asset.json";
 import {
   LayoutDashboard,
   Radio,
