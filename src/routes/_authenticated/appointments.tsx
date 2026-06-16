@@ -198,6 +198,42 @@ function AppointmentsPage() {
           <TabsContent value="cancelled">{renderTable(filtered.cancelled)}</TabsContent>
         </Tabs>
       )}
+      <ReminderHistoryDialog id={historyId} onClose={() => setHistoryId(null)} />
     </div>
+  );
+}
+
+function ReminderHistoryDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const fn = useServerFn(listReminderLogs);
+  const { data: logs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["reminder-logs", id],
+    queryFn: () => fn({ data: { appointment_id: id! } }),
+    enabled: !!id,
+  });
+  return (
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>Reminder History</DialogTitle></DialogHeader>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading…</div>
+        ) : logs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No reminders sent yet.</p>
+        ) : (
+          <div className="space-y-2 max-h-[60vh] overflow-auto">
+            {logs.map((l) => (
+              <div key={l.id} className="border rounded p-2 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="font-medium">{l.message}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
+                </div>
+                {l.metadata?.message && (
+                  <p className="text-xs text-muted-foreground mt-1">{l.metadata.message}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
