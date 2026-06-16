@@ -154,6 +154,28 @@ function FollowupsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Force create failed"),
   });
 
+  const repair = useMutation({
+    mutationFn: () => repairFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Repaired ${r?.repaired ?? 0} contacts • ${r?.convs_updated ?? 0} conversations • scanned ${r?.scanned ?? 0}`);
+      qc.invalidateQueries({ queryKey: ["followup-conv-picker"] });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Repair failed"),
+  });
+
+  const cleanup = useMutation({
+    mutationFn: () => cleanupFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Deleted ${r?.deleted ?? 0} empty contacts (skipped ${r?.skipped?.length ?? 0})`);
+      qc.invalidateQueries({ queryKey: ["followup-conv-picker"] });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Cleanup failed"),
+  });
+
+
+
   const filtered = useMemo(() => ({
     all: rows,
     pending: rows.filter((r) => r.status === "pending"),
