@@ -7,6 +7,7 @@ import {
   listFollowups, sendFollowupNow, stopFollowups,
   getFollowupTestMode, setFollowupTestMode, runFollowupCheckNow,
   forceCreateTestFollowup, listConversationsForFollowup,
+  repairContacts, cleanupDuplicateContactsWithoutPhone,
 } from "@/lib/followups/followups.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Loader2, StopCircle, FlaskConical, PlayCircle, Zap } from "lucide-react";
+import { Send, Loader2, StopCircle, FlaskConical, PlayCircle, Zap, Wrench, Trash2 } from "lucide-react";
+
+const VALID_WA = /^947\d{8}$/;
 
 export const Route = createFileRoute("/_authenticated/lead-followups")({
   component: FollowupsPage,
