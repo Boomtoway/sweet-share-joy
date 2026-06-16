@@ -728,11 +728,12 @@ async function generateAndSend(args: {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: sys }] },
+            systemInstruction: { parts: [{ text: sys + "\n\nReturn ONLY JSON: {\"reply\": string, \"lead\": {\"name\": string|null, \"phone\": string|null, \"service\": string|null, \"budget\": string|null, \"business_name\": string|null}}. Quietly extract fields from the conversation. Never invent values; use null when unknown." }] },
             contents,
             generationConfig: {
               temperature: Number(aiSettings.temperature ?? 0.7),
               maxOutputTokens: 1024,
+              responseMimeType: "application/json",
             },
           }),
         });
@@ -747,21 +748,94 @@ async function generateAndSend(args: {
           );
           return;
         }
-        replyText = json?.candidates?.[0]?.content?.parts
+        const rawText = json?.candidates?.[0]?.content?.parts
           ?.map((p: any) => p.text)
           .filter(Boolean)
           .join("")
-          ?.trim();
+          ?.trim() ?? "";
+        let extracted: { name?: string|null; phone?: string|null; service?: string|null; budget?: string|null; business_name?: string|null } = {};
+        try {
+          const parsed = JSON.parse(rawText);
+          if (parsed && typeof parsed === "object") {
+            replyText = String(parsed.reply ?? "").trim();
+            if (parsed.lead && typeof parsed.lead === "object") extracted = parsed.lead;
+          } else {
+            replyText = rawText;
+          }
+        } catch {
+          replyText = rawText;
+        }
         const finishReason = json?.candidates?.[0]?.finishReason;
         await logStep(supabaseAdmin, workspaceId, "ai_completed", {
           ms: Date.now() - t0,
           length: replyText?.length ?? 0,
           model,
           finish_reason: finishReason,
+          extracted,
           prompt_feedback: json?.promptFeedback,
           safety_ratings: json?.candidates?.[0]?.safetyRatings,
           usage: json?.usageMetadata,
         });
+
+        // ---- CRM mapping: write AI-extracted lead fields ----
+        try {
+          if (contact?.id) {
+            const cleanStr = (v: any) => (typeof v === "string" && v.trim() ? v.trim() : null);
+            const exName = cleanStr(extracted.name);
+            const exPhone = cleanStr(extracted.phone);
+            const exService = cleanStr(extracted.service);
+            const exBudget = cleanStr(extracted.budget);
+            const exBiz = cleanStr(extracted.business_name);
+
+            // Update contact name when missing
+            if (exName && !contact.name) {
+              await supabaseAdmin.from("contacts").update({ name: exName }).eq("id", contact.id);
+              contact.name = exName;
+            }
+
+            const { data: existing } = await supabaseAdmin
+              .from("leads").select("id, name, phone, service_interest, budget, business_name")
+              .eq("contact_id", contact.id).maybeSingle();
+
+            const finalName = exName || contact.name || existing?.name || contact.phone || fromPhone || null;
+            const finalPhone = exPhone || existing?.phone || contact.phone || contact.whatsapp_number || fromPhone || null;
+
+            if (!existing) {
+              if (finalName || finalPhone) {
+                const { data: ins } = await supabaseAdmin.from("leads").insert({
+                  workspace_id: workspaceId,
+                  contact_id: contact.id,
+                  name: finalName,
+                  phone: finalPhone,
+                  service_interest: exService,
+                  budget: exBudget,
+                  business_name: exBiz,
+                  source: "whatsapp",
+                  stage: "new",
+                  last_message: inboundBody?.slice(0, 500) ?? null,
+                } as any).select("id").single();
+                console.log("CRM_CREATE", { lead_id: ins?.id, name: finalName, phone: finalPhone, service: exService, budget: exBudget });
+                await logStep(supabaseAdmin, workspaceId, "CRM_CREATE", { lead_id: ins?.id, name: finalName, phone: finalPhone, service: exService, budget: exBudget });
+              }
+            } else {
+              const patch: any = {};
+              if (exName && exName !== existing.name) patch.name = exName;
+              else if (!existing.name && finalName) patch.name = finalName;
+              if (exPhone && exPhone !== existing.phone) patch.phone = exPhone;
+              else if (!existing.phone && finalPhone) patch.phone = finalPhone;
+              if (exService && exService !== existing.service_interest) patch.service_interest = exService;
+              if (exBudget && exBudget !== existing.budget) patch.budget = exBudget;
+              if (exBiz && exBiz !== existing.business_name) patch.business_name = exBiz;
+              if (Object.keys(patch).length) {
+                await supabaseAdmin.from("leads").update(patch).eq("id", existing.id);
+                console.log("CRM_UPDATE", { lead_id: existing.id, patch });
+                await logStep(supabaseAdmin, workspaceId, "CRM_UPDATE", { lead_id: existing.id, patch });
+              }
+            }
+          }
+        } catch (crmErr: any) {
+          await logStep(supabaseAdmin, workspaceId, "CRM_MAPPING_FAILED", { error: crmErr?.message }, "warn");
+        }
 
         if (!replyText) {
           await logStep(
