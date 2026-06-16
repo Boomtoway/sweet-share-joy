@@ -589,10 +589,12 @@ async function generateAndSend(args: {
       const lower = inboundBody.toLowerCase();
       const STAGE_ORDER: Record<string, number> = { new: 0, contacted: 1, qualified: 2, interested: 3, appointment_booked: 4, proposal: 5, negotiation: 6, won: 7, lost: 7 };
       const rules: Array<{ stage: string; test: RegExp }> = [
-        { stage: "won", test: /\b(paid|payment\s*(done|received|sent|made)|transferred|deposited|just\s*paid|i\s*paid)\b/i },
-        { stage: "lost", test: /\b(not\s*interested|don'?t\s*need|cancel(?:led)?|no\s*thanks?|နှူ|epa|එපා|வேண்டாம்)\b/i },
+        { stage: "won", test: /\b(paid|payment\s*(done|received|sent|made)|transferred|deposited|just\s*paid|i\s*paid|ready\s*to\s*start|let'?s\s*start|start\s*now|confirm(ed)?|go\s*ahead)\b/i },
+        { stage: "lost", test: /\b(not\s*interested|don'?t\s*need|cancel(?:led)?|no\s*thanks?|නැහැ|epa|එපා|வேண்டாம்)\b/i },
         { stage: "negotiation", test: /\b(discount|negotiate|lower\s*price|reduce|cheaper|best\s*price|final\s*price)\b/i },
-        { stage: "interested", test: /\b(price|cost|how\s*much|rate|charges?|fee|quote|quotation|pricing|මිල|ගණන|விலை)\b/i },
+        { stage: "proposal", test: /\b(quotation|quote|proposal|invoice|send\s*(me\s*)?(the\s*)?(quote|quotation|proposal|details|pricing))\b/i },
+        { stage: "appointment_booked", test: /\b(appointment|book\s*(a\s*)?(call|meeting|demo)|schedule|let'?s\s*meet|zoom|google\s*meet|calendar)\b/i },
+        { stage: "interested", test: /\b(price|cost|how\s*much|rate|charges?|fee|pricing|budget|මිල|ගණන|விலை)\b/i },
       ];
       const matchedRule = rules.find((r) => r.test.test(lower));
       if (matchedRule && currentLead) {
@@ -606,9 +608,36 @@ async function generateAndSend(args: {
           currentLead.stage = next;
         }
       }
+
+      // ---- AI Lead Scoring (0-100) ----
+      if (currentLead) {
+        const { data: leadRow } = await supabaseAdmin
+          .from("leads")
+          .select("id, stage, budget, service_interest, appointment_date, name, business_name")
+          .eq("id", currentLead.id)
+          .maybeSingle();
+        if (leadRow) {
+          let score = 0;
+          const reasons: string[] = [];
+          const hasBudget = !!leadRow.budget || /\b(\d{3,}\s*(lkr|rs|usd|\$|k|m)?|budget|afford)\b/i.test(lower);
+          const hasService = !!leadRow.service_interest || /\b(website|app|seo|ads?|marketing|design|chatbot|ecommerce|branding|social\s*media)\b/i.test(lower);
+          const hasAppointment = !!leadRow.appointment_date || leadRow.stage === "appointment_booked" || /\b(appointment|book|schedule|meet|demo|call\s*me|zoom)\b/i.test(lower);
+          const positiveIntent = /\b(interested|ready|let'?s|go\s*ahead|sounds?\s*good|perfect|great|yes\s*please|sure|ok(ay)?|confirm|start|proceed)\b/i.test(lower);
+          if (hasBudget) { score += 20; reasons.push("budget"); }
+          if (hasService) { score += 20; reasons.push("service"); }
+          if (hasAppointment) { score += 30; reasons.push("appointment"); }
+          if (positiveIntent) { score += 30; reasons.push("positive_intent"); }
+          score = Math.min(100, score);
+          const interestLevel = score >= 80 ? "Hot" : score >= 50 ? "Warm" : score >= 20 ? "Cool" : "Cold";
+          const aiSummary = `${interestLevel} lead (${score}/100) — ${reasons.join(", ") || "no strong signals"}`;
+          await supabaseAdmin.from("leads").update({ lead_score: score, ai_summary: aiSummary } as any).eq("id", currentLead.id);
+          await logStep(supabaseAdmin, workspaceId, "CRM_SCORE", { lead_id: currentLead.id, score, reasons });
+        }
+      }
     } catch (e: any) {
       await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_DETECT_FAILED", { error: e?.message }, "warn");
     }
+
 
 
     // ---- Risk gates ----
