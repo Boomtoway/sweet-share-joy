@@ -22,7 +22,9 @@ import {
   DollarSign,
   FileText,
   Briefcase,
+  CreditCard,
 } from "lucide-react";
+
 import {
   Sidebar,
   SidebarContent,
