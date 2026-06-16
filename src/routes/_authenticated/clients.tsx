@@ -180,6 +180,7 @@ function ClientsPage() {
                     payload.workspace_id = null;
                     payload.workspace_name = form.workspace_name || form.business_name;
                   }
+                  if (!payload.password) delete payload.password;
                   createMut.mutate(payload);
                 }}
                 disabled={createMut.isPending}
