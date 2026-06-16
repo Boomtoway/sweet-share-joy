@@ -459,6 +459,13 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             contact_remote_jid: contact.remote_jid ?? null,
             phone_saved: contact.phone,
           });
+          queueLog(request, supabaseAdmin, workspaceId, "Save Conversation", {
+            conversation_id: conv.id,
+            contact_id: contact.id,
+            phone: contact.phone,
+            remote_jid,
+            final_send_number: sourcePhone,
+          });
 
           // ---- Run inline. Background tasks (EdgeRuntime.waitUntil /
           // request.waitUntil) do not exist in this Worker runtime, so any
@@ -765,7 +772,7 @@ async function generateAndSend(args: {
     };
 
     // Exact AI auto-reply send target assignment:
-    // inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
+    // verified sender-number fields → inbound remoteJid → conversation.remote_jid → contact.remote_jid → contact.phone.
     // Only real sender/JID fields are candidates; conversation_id/contact_id/lead_id
     // and message-history recipients are never used as WhatsApp numbers.
     const phone = contact?.phone ?? contact?.whatsapp_number ?? contact?.sender_number ?? fromPhone ?? "";
@@ -782,6 +789,14 @@ async function generateAndSend(args: {
       contact?.phone,
     );
     const to = extractedWhatsappNumber;
+    await logStep(supabaseAdmin, workspaceId, "AI Generation", {
+      conversation_id: conversation.id,
+      contact_id: contact.id,
+      phone,
+      remote_jid: remoteJidForSend,
+      final_send_number: to,
+      message_id: outboundMsg?.id,
+    });
     console.log("SEND_TO_NUMBER", {
       conversation_id: conversation.id,
       contact_id: contact.id,
@@ -831,6 +846,14 @@ async function generateAndSend(args: {
       message: replyText,
       message_id: outboundMsg?.id,
     });
+    await logStep(supabaseAdmin, workspaceId, "VPS Send Request", {
+      contact_id: contact.id,
+      phone,
+      remote_jid: remoteJidForSend,
+      final_send_number: to,
+      url: VPS_SEND_URL,
+      message_id: outboundMsg?.id,
+    });
     await logStep(supabaseAdmin, workspaceId, "VPS_URL", { url: VPS_SEND_URL, message_id: outboundMsg?.id });
     await logStep(supabaseAdmin, workspaceId, "REQUEST_HEADERS", { headers: requestHeaders, message_id: outboundMsg?.id });
     await logStep(supabaseAdmin, workspaceId, "REQUEST_BODY", { body: requestBody, message_id: outboundMsg?.id });
@@ -840,6 +863,13 @@ async function generateAndSend(args: {
     const debugStr = `HTTP ${result.status} ${responseText}`;
 
     console.log("VPS_RESPONSE", { status: result.status, ok: result.ok, body: result.body });
+    await logStep(
+      supabaseAdmin,
+      workspaceId,
+      "WhatsApp Delivery Result",
+      { contact_id: contact.id, phone, remote_jid: remoteJidForSend, final_send_number: to, status: result.status, ok: result.ok, body: responseText, message_id: outboundMsg?.id },
+      result.ok ? "info" : "error",
+    );
     await logStep(
       supabaseAdmin,
       workspaceId,
