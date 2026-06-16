@@ -7,6 +7,7 @@ import { LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole } from "@/hooks/use-role";
+import { useSubscription } from "@/hooks/use-subscription";
 
 const CLIENT_ALLOWED = new Set([
   "/dashboard",
@@ -15,7 +16,18 @@ const CLIENT_ALLOWED = new Set([
   "/invoices",
   "/revenue",
   "/settings",
+  "/subscription-expired",
 ]);
+
+// Routes blocked when the current user's subscription is expired.
+const SUBSCRIPTION_BLOCKED = [
+  "/whatsapp",
+  "/ai-settings",
+  "/leads",
+  "/crm",
+  "/dashboard",
+];
+
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,

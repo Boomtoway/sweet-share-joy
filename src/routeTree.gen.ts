@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWhatsappRouteImport } from './routes/_authenticated/whatsapp'
 import { Route as AuthenticatedVpsRouteImport } from './routes/_authenticated/vps'
 import { Route as AuthenticatedSubscriptionsRouteImport } from './routes/_authenticated/subscriptions'
+import { Route as AuthenticatedSubscriptionExpiredRouteImport } from './routes/_authenticated/subscription-expired'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/risk'
 import { Route as AuthenticatedRevenueRouteImport } from './routes/_authenticated/revenue'
@@ -70,6 +71,12 @@ const AuthenticatedSubscriptionsRoute =
   AuthenticatedSubscriptionsRouteImport.update({
     id: '/subscriptions',
     path: '/subscriptions',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSubscriptionExpiredRoute =
+  AuthenticatedSubscriptionExpiredRouteImport.update({
+    id: '/subscription-expired',
+    path: '/subscription-expired',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -236,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/revenue': typeof AuthenticatedRevenueRoute
   '/risk': typeof AuthenticatedRiskRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
@@ -269,6 +277,7 @@ export interface FileRoutesByTo {
   '/revenue': typeof AuthenticatedRevenueRoute
   '/risk': typeof AuthenticatedRiskRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/vps': typeof AuthenticatedVpsRoute
   '/whatsapp': typeof AuthenticatedWhatsappRoute
@@ -304,6 +313,7 @@ export interface FileRoutesById {
   '/_authenticated/revenue': typeof AuthenticatedRevenueRoute
   '/_authenticated/risk': typeof AuthenticatedRiskRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
   '/_authenticated/subscriptions': typeof AuthenticatedSubscriptionsRoute
   '/_authenticated/vps': typeof AuthenticatedVpsRoute
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/revenue'
     | '/risk'
     | '/settings'
+    | '/subscription-expired'
     | '/subscriptions'
     | '/vps'
     | '/whatsapp'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/revenue'
     | '/risk'
     | '/settings'
+    | '/subscription-expired'
     | '/subscriptions'
     | '/vps'
     | '/whatsapp'
@@ -406,6 +418,7 @@ export interface FileRouteTypes {
     | '/_authenticated/revenue'
     | '/_authenticated/risk'
     | '/_authenticated/settings'
+    | '/_authenticated/subscription-expired'
     | '/_authenticated/subscriptions'
     | '/_authenticated/vps'
     | '/_authenticated/whatsapp'
@@ -471,6 +484,13 @@ declare module '@tanstack/react-router' {
       path: '/subscriptions'
       fullPath: '/subscriptions'
       preLoaderRoute: typeof AuthenticatedSubscriptionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/subscription-expired': {
+      id: '/_authenticated/subscription-expired'
+      path: '/subscription-expired'
+      fullPath: '/subscription-expired'
+      preLoaderRoute: typeof AuthenticatedSubscriptionExpiredRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -679,6 +699,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRevenueRoute: typeof AuthenticatedRevenueRoute
   AuthenticatedRiskRoute: typeof AuthenticatedRiskRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSubscriptionExpiredRoute: typeof AuthenticatedSubscriptionExpiredRoute
   AuthenticatedSubscriptionsRoute: typeof AuthenticatedSubscriptionsRoute
   AuthenticatedVpsRoute: typeof AuthenticatedVpsRoute
   AuthenticatedWhatsappRoute: typeof AuthenticatedWhatsappRoute
@@ -705,6 +726,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRevenueRoute: AuthenticatedRevenueRoute,
   AuthenticatedRiskRoute: AuthenticatedRiskRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSubscriptionExpiredRoute: AuthenticatedSubscriptionExpiredRoute,
   AuthenticatedSubscriptionsRoute: AuthenticatedSubscriptionsRoute,
   AuthenticatedVpsRoute: AuthenticatedVpsRoute,
   AuthenticatedWhatsappRoute: AuthenticatedWhatsappRoute,
