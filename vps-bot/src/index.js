@@ -234,7 +234,7 @@ app.post('/send', async (req, res) => {
     // Normalize to bare digits (E.164 without '+').
     let digits = String(to).trim().split('@')[0].replace(/\D/g, '');
     if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
-    if (!/^[0-9]{10,15}$/.test(digits)) {
+    if (!/^947\d{8}$/.test(digits)) {
       log.error({ to, digits }, 'SEND_INVALID_NUMBER');
       return res.status(400).json({ error: 'invalid whatsapp number', to, digits });
     }

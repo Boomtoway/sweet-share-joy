@@ -46,7 +46,7 @@ function normalizeLkPhone(value: unknown): string | null {
   if (phone.startsWith("+")) phone = phone.slice(1);
   if (phone.startsWith("00")) phone = phone.slice(2);
   if (phone.startsWith("0")) phone = `94${phone.slice(1)}`;
-  return /^94\d{9}$/.test(phone) ? phone : null;
+  return /^947\d{8}$/.test(phone) ? phone : null;
 }
 
 function normalizeLkPhoneToJid(value: unknown): string | null {
@@ -299,6 +299,8 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
                 workspace_id: workspaceId,
                 phone: sourcePhone,
                 remote_jid,
+                whatsapp_number: sourcePhone,
+                sender_number: sourcePhone,
                 name: body.contact_name ?? sourcePhone ?? "WhatsApp contact",
                 channel: "whatsapp",
                 external_id: body.external_id,
@@ -306,14 +308,16 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
               .select()
               .single();
             contact = ins.data;
-          } else if (remote_jid && (contact.remote_jid !== remote_jid || contact.phone !== sourcePhone)) {
+          } else if (remote_jid && (contact.remote_jid !== remote_jid || contact.phone !== sourcePhone || contact.whatsapp_number !== sourcePhone || contact.sender_number !== sourcePhone)) {
             // Backfill remote_jid/phone on existing contact
             await supabaseAdmin
               .from("contacts")
-              .update({ remote_jid, phone: sourcePhone })
+              .update({ remote_jid, phone: sourcePhone, whatsapp_number: sourcePhone, sender_number: sourcePhone })
               .eq("id", contact.id);
             contact.remote_jid = remote_jid;
             contact.phone = sourcePhone;
+            contact.whatsapp_number = sourcePhone;
+            contact.sender_number = sourcePhone;
           }
           if (!contact) {
             return new Response(JSON.stringify({ error: "contact failed" }), {
@@ -354,17 +358,19 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             const ins = await supabaseAdmin
               .from("conversations")
-              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid })
+              .insert({ workspace_id: workspaceId, contact_id: contact.id, remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone })
               .select()
               .single();
             conv = ins.data;
-          } else if (remote_jid && conv.remote_jid !== remote_jid) {
+          } else if (remote_jid && (conv.remote_jid !== remote_jid || conv.whatsapp_number !== sourcePhone || conv.sender_number !== sourcePhone)) {
             console.log("UPSERTING CONVERSATION:", { contact_id: contact.id, remote_jid });
             await supabaseAdmin
               .from("conversations")
-              .update({ remote_jid })
+              .update({ remote_jid, whatsapp_number: sourcePhone, sender_number: sourcePhone })
               .eq("id", conv.id);
             conv.remote_jid = remote_jid;
+            conv.whatsapp_number = sourcePhone;
+            conv.sender_number = sourcePhone;
           }
           if (!conv) {
             return new Response(JSON.stringify({ error: "conv failed" }), {
