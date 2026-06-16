@@ -75,6 +75,12 @@ function ClientsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to reset password"),
   });
 
+  const inviteMut = useMutation({
+    mutationFn: (data: any) => invite({ data }),
+    onSuccess: (r: any) => toast.success(`Invite email sent to ${r?.email ?? "client"}`),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to send invite"),
+  });
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: "", email: "", password: "", business_name: "",
