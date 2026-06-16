@@ -714,7 +714,17 @@ async function generateAndSend(args: {
     // and message-history recipients are never used as WhatsApp numbers.
     const originalPhone = contact?.phone ?? fromPhone ?? "";
     const remoteJidForSend = remoteJid || conversation.remote_jid || contact?.remote_jid || "";
-    const extractedWhatsappNumber = extractWhatsappSendNumber(remoteJid, conversation.remote_jid, contact?.remote_jid, fromPhone, contact?.phone);
+    const extractedWhatsappNumber = extractWhatsappSendNumber(
+      remoteJid,
+      conversation.remote_jid,
+      conversation.whatsapp_number,
+      conversation.sender_number,
+      contact?.remote_jid,
+      contact?.whatsapp_number,
+      contact?.sender_number,
+      fromPhone,
+      contact?.phone,
+    );
     const to = extractedWhatsappNumber;
     console.log("SEND_TO_NUMBER", {
       original_phone: originalPhone,
