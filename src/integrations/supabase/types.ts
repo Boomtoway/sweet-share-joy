@@ -123,38 +123,68 @@ export type Database = {
       }
       appointments: {
         Row: {
+          appointment_date: string | null
+          appointment_datetime: string | null
+          appointment_time: string | null
           contact_id: string | null
+          conversation_id: string | null
           created_at: string
           ends_at: string | null
           id: string
+          name: string | null
           notes: string | null
-          starts_at: string
+          phone: string | null
+          reminder_15m_sent: boolean
+          reminder_1h_sent: boolean
+          reminder_24h_sent: boolean
+          service_needed: string | null
+          starts_at: string | null
           status: Database["public"]["Enums"]["appointment_status"]
-          title: string
+          title: string | null
           updated_at: string
           workspace_id: string
         }
         Insert: {
+          appointment_date?: string | null
+          appointment_datetime?: string | null
+          appointment_time?: string | null
           contact_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           ends_at?: string | null
           id?: string
+          name?: string | null
           notes?: string | null
-          starts_at: string
+          phone?: string | null
+          reminder_15m_sent?: boolean
+          reminder_1h_sent?: boolean
+          reminder_24h_sent?: boolean
+          service_needed?: string | null
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
-          title: string
+          title?: string | null
           updated_at?: string
           workspace_id: string
         }
         Update: {
+          appointment_date?: string | null
+          appointment_datetime?: string | null
+          appointment_time?: string | null
           contact_id?: string | null
+          conversation_id?: string | null
           created_at?: string
           ends_at?: string | null
           id?: string
+          name?: string | null
           notes?: string | null
-          starts_at?: string
+          phone?: string | null
+          reminder_15m_sent?: boolean
+          reminder_1h_sent?: boolean
+          reminder_24h_sent?: boolean
+          service_needed?: string | null
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["appointment_status"]
-          title?: string
+          title?: string | null
           updated_at?: string
           workspace_id?: string
         }
@@ -164,6 +194,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
