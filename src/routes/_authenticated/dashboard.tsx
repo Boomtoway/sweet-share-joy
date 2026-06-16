@@ -11,7 +11,12 @@ import {
   UserCheck,
   ShieldAlert,
   Server,
+  DollarSign,
 } from "lucide-react";
+
+function fmtLkr(n: number) {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency: "LKR", maximumFractionDigits: 0 }).format(n || 0);
+}
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — StartAppLK" }] }),
@@ -76,6 +81,16 @@ function Dashboard() {
         supabase.from("whatsapp_sessions").select("*", { count: "exact", head: true }).eq("status", "connected"),
       ]);
 
+      const { data: invs } = await (supabase as any).from("invoices").select("amount,paid_amount,balance_amount,status");
+      let invoiced = 0, paidRev = 0, pendingRev = 0, overdueRev = 0;
+      for (const r of (invs ?? []) as any[]) {
+        invoiced += Number(r.amount ?? 0);
+        paidRev += Number(r.paid_amount ?? 0);
+        const bal = Number(r.balance_amount ?? 0);
+        if (r.status === "overdue") overdueRev += bal;
+        else if (r.status !== "paid") pendingRev += bal;
+      }
+
       return {
         leads: leads.count ?? 0,
         newMsgs: newMsgs.count ?? 0,
@@ -85,6 +100,7 @@ function Dashboard() {
         takeover: takeover.count ?? 0,
         risks: risks.count ?? 0,
         bots: bots.count ?? 0,
+        invoiced, paidRev, pendingRev, overdueRev,
       };
     },
   });
@@ -98,6 +114,10 @@ function Dashboard() {
     { title: "Human Takeover", value: stats?.takeover ?? "—", icon: UserCheck, hint: "Awaiting agent", gradient: "from-indigo-500 to-blue-500" },
     { title: "Risk Alerts", value: stats?.risks ?? "—", icon: ShieldAlert, hint: "Unresolved", gradient: "from-red-500 to-rose-500" },
     { title: "Connected Bots", value: stats?.bots ?? "—", icon: Server, hint: "VPS sessions", gradient: "from-fuchsia-500 to-pink-500" },
+    { title: "Total Invoiced", value: stats ? fmtLkr(stats.invoiced) : "—", icon: DollarSign, hint: "All invoices", gradient: "from-slate-500 to-zinc-500" },
+    { title: "Paid Revenue", value: stats ? fmtLkr(stats.paidRev) : "—", icon: DollarSign, hint: "Received", gradient: "from-emerald-500 to-teal-500" },
+    { title: "Pending Revenue", value: stats ? fmtLkr(stats.pendingRev) : "—", icon: DollarSign, hint: "Unpaid balance", gradient: "from-amber-500 to-orange-500" },
+    { title: "Overdue Revenue", value: stats ? fmtLkr(stats.overdueRev) : "—", icon: DollarSign, hint: "Past due", gradient: "from-rose-500 to-red-500" },
   ];
 
   return (
