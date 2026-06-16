@@ -221,21 +221,44 @@ app.post('/send', async (req, res) => {
     const { to, message } = req.body ?? {};
     if (!to || !message) return res.status(400).json({ error: 'to and message required' });
     if (connState !== 'connected') return res.status(409).json({ error: 'not connected' });
-    let recipient = String(to).trim();
-    if (!recipient.includes('@s.whatsapp.net')) {
-      let digits = recipient.replace(/\D/g, '');
-      if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
-      recipient = `${digits}@s.whatsapp.net`;
+
+    // Normalize to bare digits (E.164 without '+').
+    let digits = String(to).trim().split('@')[0].replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = `94${digits.slice(1)}`;
+    if (!/^[0-9]{10,15}$/.test(digits)) {
+      log.error({ to, digits }, 'SEND_INVALID_NUMBER');
+      return res.status(400).json({ error: 'invalid whatsapp number', to, digits });
     }
-    const jid = recipient;
-    if (!/^[^@\s]+@s\.whatsapp\.net$/i.test(jid)) {
-      log.error({ to }, 'blocked invalid whatsapp recipient');
-      return res.status(400).json({ error: 'invalid whatsapp recipient' });
+
+    log.info({ to, digits }, 'SEND_LOOKUP_START');
+
+    // CRITICAL: Baileys' sendMessage returns a "sent" key even when the JID
+    // is not actually registered on WhatsApp (or when the account uses the
+    // new LID identity and @s.whatsapp.net silently fails). onWhatsApp()
+    // returns the authoritative JID we should send to.
+    let onWa;
+    try {
+      const results = await sock.onWhatsApp(digits);
+      onWa = Array.isArray(results) ? results[0] : null;
+    } catch (e) {
+      log.error({ digits, err: e?.message }, 'SEND_LOOKUP_ERROR');
+      return res.status(502).json({ error: 'whatsapp lookup failed', detail: e?.message });
     }
-    log.info({ to, jid }, 'sending message');
+
+    if (!onWa?.exists) {
+      log.error({ digits, onWa }, 'SEND_NUMBER_NOT_ON_WHATSAPP');
+      return res.status(404).json({ error: 'number not on whatsapp', digits, onWa });
+    }
+
+    const jid = onWa.jid || onWa.lid || `${digits}@s.whatsapp.net`;
+    log.info({ digits, jid, lid: onWa.lid ?? null, exists: onWa.exists }, 'SEND_LOOKUP_OK');
+
+    log.info({ to, jid, digits }, 'SEND_DISPATCH');
     const sent = await sock.sendMessage(jid, { text: String(message) });
-    res.json({ ok: true, id: sent?.key?.id, jid });
+    log.info({ id: sent?.key?.id, jid, digits }, 'SEND_DISPATCH_OK');
+    res.json({ ok: true, id: sent?.key?.id, jid, digits, lid: onWa.lid ?? null });
   } catch (e) {
+    log.error({ err: e?.message, stack: e?.stack }, 'SEND_FAILED');
     res.status(500).json({ error: e.message });
   }
 });
