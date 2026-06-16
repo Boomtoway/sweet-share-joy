@@ -52,6 +52,7 @@ function FollowupsPage() {
   const stopFn = useServerFn(stopFollowups);
   const getTestFn = useServerFn(getFollowupTestMode);
   const setTestFn = useServerFn(setFollowupTestMode);
+  const runCheckFn = useServerFn(runFollowupCheckNow);
 
   const { data: testModeData } = useQuery<{ test_mode: boolean }>({
     queryKey: ["followup-test-mode"],
