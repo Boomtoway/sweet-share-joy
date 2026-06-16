@@ -19,6 +19,7 @@ import {
   Send,
   Kanban,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,7 @@ const groups = [
       { title: "Appointments", url: "/appointments", icon: Calendar },
       { title: "Sales CRM", url: "/crm", icon: Kanban },
       { title: "Revenue History", url: "/revenue", icon: DollarSign },
+      { title: "Invoices", url: "/invoices", icon: FileText },
       { title: "Leads", url: "/leads", icon: Users },
       { title: "Lead Follow-ups", url: "/lead-followups", icon: Send },
       { title: "Human Takeover", url: "/human-takeover", icon: UserCheck },
