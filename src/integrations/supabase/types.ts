@@ -924,6 +924,53 @@ export type Database = {
           },
         ]
       }
+      payment_slips: {
+        Row: {
+          amount: number | null
+          client_id: string
+          created_at: string
+          id: string
+          note: string | null
+          status: string
+          storage_path: string | null
+          subscription_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          client_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          storage_path?: string | null
+          subscription_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          status?: string
+          storage_path?: string | null
+          subscription_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_slips_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
