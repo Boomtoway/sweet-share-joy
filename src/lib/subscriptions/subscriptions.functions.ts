@@ -17,6 +17,33 @@ const PLAN_DEFAULTS: Record<string, { price: number; bots: number | null; msgs: 
   agency: { price: 49900, bots: null, msgs: null },
 };
 
+// Auto-expires the current user's subscription if expiry_date has passed,
+// then returns its current state. Safe for any authenticated user.
+export const checkMySubscription = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, plan, status, start_date, expiry_date, max_bots, max_messages, price_lkr")
+      .eq("client_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!sub) return { subscription: null, expired: false };
+
+    const now = Date.now();
+    const exp = sub.expiry_date ? new Date(sub.expiry_date).getTime() : null;
+    if (sub.status === "active" && exp && exp < now) {
+      await supabaseAdmin.from("subscriptions").update({ status: "expired" }).eq("id", sub.id);
+      sub.status = "expired";
+    }
+    const expired = sub.status !== "active";
+    return { subscription: sub, expired };
+  });
+
+
 export const listSubscriptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
