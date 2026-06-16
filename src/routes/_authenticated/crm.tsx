@@ -143,13 +143,41 @@ function CrmPage() {
     return map;
   }, [filtered]);
 
+  const [wonPrompt, setWonPrompt] = useState<{ id: string; prevStage: Stage; dealValue: string; service: string } | null>(null);
+
+  const applyStage = async (id: string, stage: Stage, extra: Record<string, any> = {}) => {
+    const prev = leads.find((l) => l.id === id);
+    if (!prev) return;
+    setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage, ...extra } : l));
+    const { error } = await supabase.from("leads").update({ stage, ...extra }).eq("id", id);
+    if (error) { toast.error(error.message); setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage: prev.stage } : l)); }
+    else toast.success(`Moved to ${STAGES.find((s) => s.id === stage)?.label}`);
+  };
+
   const moveStage = async (id: string, stage: Stage) => {
     const prev = leads.find((l) => l.id === id);
     if (!prev || prev.stage === stage) return;
-    setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage } : l));
-    const { error } = await supabase.from("leads").update({ stage }).eq("id", id);
-    if (error) { toast.error(error.message); setLeads((ls) => ls.map((l) => l.id === id ? { ...l, stage: prev.stage } : l)); }
-    else toast.success(`Moved to ${STAGES.find((s) => s.id === stage)?.label}`);
+    if (stage === "won") {
+      setWonPrompt({
+        id, prevStage: prev.stage,
+        dealValue: String(prev.deal_value ?? prev.value ?? ""),
+        service: prev.service_interest ?? "",
+      });
+      return;
+    }
+    await applyStage(id, stage);
+  };
+
+  const confirmWon = async () => {
+    if (!wonPrompt) return;
+    const v = Number(wonPrompt.dealValue) || 0;
+    await applyStage(wonPrompt.id, "won", {
+      deal_value: v,
+      value: v,
+      won_date: new Date().toISOString(),
+      service_interest: wonPrompt.service || null,
+    });
+    setWonPrompt(null);
   };
 
   const saveActive = async (patch: Partial<Lead>) => {
