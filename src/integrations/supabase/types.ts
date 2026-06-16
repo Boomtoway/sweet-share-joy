@@ -604,6 +604,7 @@ export type Database = {
           contact_id: string | null
           created_at: string
           email: string | null
+          follow_up_date: string | null
           id: string
           lead_score: number
           name: string | null
@@ -612,6 +613,7 @@ export type Database = {
           service_interest: string | null
           source: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
+          stage_changed_at: string
           status: string
           updated_at: string
           value: number
@@ -626,6 +628,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           email?: string | null
+          follow_up_date?: string | null
           id?: string
           lead_score?: number
           name?: string | null
@@ -634,6 +637,7 @@ export type Database = {
           service_interest?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
+          stage_changed_at?: string
           status?: string
           updated_at?: string
           value?: number
@@ -648,6 +652,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string
           email?: string | null
+          follow_up_date?: string | null
           id?: string
           lead_score?: number
           name?: string | null
@@ -656,6 +661,7 @@ export type Database = {
           service_interest?: string | null
           source?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
+          stage_changed_at?: string
           status?: string
           updated_at?: string
           value?: number
@@ -1062,6 +1068,7 @@ export type Database = {
         | "lost"
         | "interested"
         | "appointment_booked"
+        | "negotiation"
       message_delivery_status: "pending" | "sent" | "delivered" | "failed"
       message_direction: "inbound" | "outbound"
       message_sender: "contact" | "ai" | "human" | "system"
@@ -1212,6 +1219,7 @@ export const Constants = {
         "lost",
         "interested",
         "appointment_booked",
+        "negotiation",
       ],
       message_delivery_status: ["pending", "sent", "delivered", "failed"],
       message_direction: ["inbound", "outbound"],
