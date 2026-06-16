@@ -728,7 +728,42 @@ async function generateAndSend(args: {
       return;
     }
 
-
+    // ---- Appointment intent detection (auto-create appointment) ----
+    try {
+      const detected = detectAppointment(inboundBody);
+      if (detected?.intent) {
+        const apptPhone = contact?.phone ?? contact?.whatsapp_number ?? contact?.sender_number ?? fromPhone ?? "";
+        const apptName = contact?.name ?? (apptPhone || "Customer");
+        const { data: apptRow, error: apptErr } = await supabaseAdmin
+          .from("appointments")
+          .insert({
+            workspace_id: workspaceId,
+            contact_id: contact?.id ?? null,
+            conversation_id: conversation.id,
+            name: apptName,
+            phone: apptPhone,
+            service_needed: detected.service_needed,
+            appointment_date: detected.date,
+            appointment_time: detected.time,
+            appointment_datetime: detected.datetime,
+            starts_at: detected.datetime,
+            title: detected.service_needed || `Appointment with ${apptName}`,
+            notes: `Auto-created from message: "${inboundBody.slice(0, 200)}"`,
+            status: "scheduled",
+          } as any)
+          .select()
+          .single();
+        await logStep(
+          supabaseAdmin,
+          workspaceId,
+          apptErr ? "APPOINTMENT_CREATE_FAILED" : "APPOINTMENT_AUTO_CREATED",
+          { detected, appointment_id: apptRow?.id, error: apptErr?.message },
+          apptErr ? "error" : "info",
+        );
+      }
+    } catch (apptEx: any) {
+      await logStep(supabaseAdmin, workspaceId, "APPOINTMENT_DETECT_ERROR", { error: apptEx?.message }, "error");
+    }
 
     // Save outbound as pending
     const { data: outboundMsg } = await supabaseAdmin
