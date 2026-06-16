@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import {
   getMyBilling,
   requestRenewal,
-  recordPaymentSlip,
+  createPaymentRequest,
   getSlipSignedUrl,
 } from "@/lib/billing/billing.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -71,7 +71,7 @@ function BillingPage() {
   const qc = useQueryClient();
   const fetchBilling = useServerFn(getMyBilling);
   const fnRenewal = useServerFn(requestRenewal);
-  const fnSlip = useServerFn(recordPaymentSlip);
+  const fnSlip = useServerFn(createPaymentRequest);
   const fnSign = useServerFn(getSlipSignedUrl);
 
   const { data, isLoading } = useQuery({
@@ -103,28 +103,50 @@ function BillingPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [amount, setAmount] = useState<string>("");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [bankName, setBankName] = useState("");
   const [note, setNote] = useState("");
+  const [slipFile, setSlipFile] = useState<File | null>(null);
 
-  async function handleUpload(file: File) {
+  async function handleSubmitPayment(e: React.FormEvent) {
+    e.preventDefault();
     if (!user) return;
+    if (!slipFile) {
+      toast.error("Please select a slip image to upload.");
+      return;
+    }
+    const amt = Number(amount);
+    if (!amt || amt <= 0) {
+      toast.error("Enter a valid amount.");
+      return;
+    }
+    if (!referenceNumber.trim() || !bankName.trim()) {
+      toast.error("Reference number and bank name are required.");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "bin";
+      const ext = slipFile.name.split(".").pop() || "bin";
       const path = `${user.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("payment-slips")
-        .upload(path, file, { upsert: false, contentType: file.type });
+        .upload(path, slipFile, { upsert: false, contentType: slipFile.type });
       if (upErr) throw upErr;
       await fnSlip({
         data: {
-          storage_path: path,
-          amount: amount ? Number(amount) : undefined,
-          note: note || undefined,
+          amount: amt,
+          reference_number: referenceNumber.trim(),
+          bank_name: bankName.trim(),
+          slip_path: path,
+          note: note.trim() || undefined,
         },
       });
-      toast.success("Payment slip uploaded. We'll verify shortly.");
+      toast.success("Payment slip uploaded successfully. We'll verify shortly.");
       setAmount("");
+      setReferenceNumber("");
+      setBankName("");
       setNote("");
+      setSlipFile(null);
       if (fileRef.current) fileRef.current.value = "";
       qc.invalidateQueries({ queryKey: ["billing"] });
     } catch (e: any) {
@@ -253,29 +275,49 @@ function BillingPage() {
                   Upload Payment Slip
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Input
-                  type="number"
-                  placeholder="Amount (LKR)"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-                <Input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f);
-                  }}
-                  disabled={uploading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Accepted: JPG, PNG, PDF. Stored securely.
-                </p>
+              <CardContent>
+                <form onSubmit={handleSubmitPayment} className="space-y-3">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Amount (LKR)"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                  <Input
+                    placeholder="Reference number"
+                    value={referenceNumber}
+                    onChange={(e) => setReferenceNumber(e.target.value)}
+                    maxLength={100}
+                    required
+                  />
+                  <Input
+                    placeholder="Bank name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    maxLength={100}
+                    required
+                  />
+                  <Input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setSlipFile(e.target.files?.[0] ?? null)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Accepted: JPG, PNG, PDF. Stored securely.
+                  </p>
+                  <Button type="submit" className="w-full" disabled={uploading}>
+                    {uploading ? "Uploading…" : "Submit Payment Slip"}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </div>
+
 
           <Card>
             <CardHeader>
