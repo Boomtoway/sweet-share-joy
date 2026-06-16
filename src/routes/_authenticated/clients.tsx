@@ -7,6 +7,7 @@ import {
   createClient as createClientFn,
   updateClient,
   listWorkspaces,
+  resetClientPassword,
 } from "@/lib/clients/clients.functions";
 import { useRole } from "@/hooks/use-role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +21,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Users } from "lucide-react";
+import { Plus, Users, KeyRound } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/clients")({
   head: () => ({ meta: [{ title: "Clients — Admin" }] }),
@@ -40,6 +42,7 @@ function ClientsPage() {
   const wsList = useServerFn(listWorkspaces);
   const create = useServerFn(createClientFn);
   const update = useServerFn(updateClient);
+  const resetPw = useServerFn(resetClientPassword);
   const qc = useQueryClient();
 
   const clientsQ = useQuery({ queryKey: ["admin-clients"], queryFn: () => list(), enabled: role === "admin" });
@@ -47,8 +50,8 @@ function ClientsPage() {
 
   const createMut = useMutation({
     mutationFn: (data: any) => create({ data }),
-    onSuccess: () => {
-      toast.success("Client created");
+    onSuccess: (res: any) => {
+      toast.success(res?.invite_sent ? "Client created — invite email sent" : "Client created");
       qc.invalidateQueries({ queryKey: ["admin-clients"] });
       setOpen(false);
     },
@@ -64,12 +67,19 @@ function ClientsPage() {
     onError: (e: any) => toast.error(e?.message ?? "Failed to update"),
   });
 
+  const resetMut = useMutation({
+    mutationFn: (data: any) => resetPw({ data }),
+    onSuccess: () => toast.success("Password reset"),
+    onError: (e: any) => toast.error(e?.message ?? "Failed to reset password"),
+  });
+
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: "", email: "", password: "", business_name: "",
     plan: "starter" as "starter" | "growth" | "pro",
     workspace_id: "__new__" as string,
     workspace_name: "",
+    send_invite: false,
   });
 
   if (loading || role !== "admin") return null;
@@ -103,9 +113,24 @@ function ClientsPage() {
                 <Label>Email</Label>
                 <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               </div>
+              <div className="flex items-center justify-between rounded-md border p-3">
+                <div>
+                  <Label className="text-sm">Send Invite Email</Label>
+                  <p className="text-xs text-muted-foreground">Client receives an email to set their own password</p>
+                </div>
+                <Switch
+                  checked={form.send_invite}
+                  onCheckedChange={(v) => setForm({ ...form, send_invite: v })}
+                />
+              </div>
               <div className="space-y-2">
-                <Label>Password</Label>
-                <Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                <Label>{form.send_invite ? "Password (optional)" : "Password"}</Label>
+                <Input
+                  type="password"
+                  placeholder={form.send_invite ? "Leave blank to let client set via email" : "At least 6 characters"}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Business name</Label>
@@ -155,6 +180,7 @@ function ClientsPage() {
                     payload.workspace_id = null;
                     payload.workspace_name = form.workspace_name || form.business_name;
                   }
+                  if (!payload.password) delete payload.password;
                   createMut.mutate(payload);
                 }}
                 disabled={createMut.isPending}
@@ -183,6 +209,7 @@ function ClientsPage() {
                   <TableHead>Workspace</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -215,6 +242,20 @@ function ClientsPage() {
                       >
                         {c.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const pw = window.prompt(`Set new password for ${c.email} (min 6 chars):`);
+                          if (!pw) return;
+                          if (pw.length < 6) return toast.error("Password too short");
+                          resetMut.mutate({ id: c.id, password: pw });
+                        }}
+                      >
+                        <KeyRound className="h-3.5 w-3.5 mr-1" /> Reset password
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
