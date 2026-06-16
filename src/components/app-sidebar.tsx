@@ -17,6 +17,7 @@ import {
   Sparkles,
   Calendar,
   Send,
+  Kanban,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const groups = [
     items: [
       { title: "Conversations", url: "/conversations", icon: Inbox },
       { title: "Appointments", url: "/appointments", icon: Calendar },
+      { title: "Sales CRM", url: "/crm", icon: Kanban },
       { title: "Leads", url: "/leads", icon: Users },
       { title: "Lead Follow-ups", url: "/lead-followups", icon: Send },
       { title: "Human Takeover", url: "/human-takeover", icon: UserCheck },

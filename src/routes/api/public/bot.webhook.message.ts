@@ -552,20 +552,51 @@ async function generateAndSend(args: {
       contact_id: contact.id,
     });
 
-    // Auto-create lead
+    // Auto-create lead + auto stage detection from inbound text
     const { data: existingLead } = await supabaseAdmin
       .from("leads")
-      .select("id")
+      .select("id, stage")
       .eq("contact_id", contact.id)
       .maybeSingle();
+    let currentLead: any = existingLead;
     if (!existingLead) {
-      await supabaseAdmin.from("leads").insert({
+      const ins = await supabaseAdmin.from("leads").insert({
         workspace_id: workspaceId,
         contact_id: contact.id,
+        name: contact.name ?? contact.phone ?? null,
+        phone: contact.phone ?? contact.whatsapp_number ?? null,
         source: "whatsapp",
         stage: "new",
-      } as any);
+      } as any).select("id, stage").single();
+      currentLead = ins.data;
     }
+
+    // Inbound keyword -> stage rules. Won/Lost only auto-apply when not already terminal.
+    try {
+      const lower = inboundBody.toLowerCase();
+      const STAGE_ORDER: Record<string, number> = { new: 0, contacted: 1, qualified: 2, interested: 3, appointment_booked: 4, proposal: 5, negotiation: 6, won: 7, lost: 7 };
+      const rules: Array<{ stage: string; test: RegExp }> = [
+        { stage: "won", test: /\b(paid|payment\s*(done|received|sent|made)|transferred|deposited|just\s*paid|i\s*paid)\b/i },
+        { stage: "lost", test: /\b(not\s*interested|don'?t\s*need|cancel(?:led)?|no\s*thanks?|နှူ|epa|එපා|வேண்டாம்)\b/i },
+        { stage: "negotiation", test: /\b(discount|negotiate|lower\s*price|reduce|cheaper|best\s*price|final\s*price)\b/i },
+        { stage: "interested", test: /\b(price|cost|how\s*much|rate|charges?|fee|quote|quotation|pricing|මිල|ගණන|விலை)\b/i },
+      ];
+      const matchedRule = rules.find((r) => r.test.test(lower));
+      if (matchedRule && currentLead) {
+        const cur = currentLead.stage ?? "new";
+        const isTerminal = cur === "won" || cur === "lost";
+        const next = matchedRule.stage;
+        const shouldAdvance = !isTerminal && (next === "won" || next === "lost" || (STAGE_ORDER[next] ?? 0) > (STAGE_ORDER[cur] ?? 0));
+        if (shouldAdvance) {
+          await supabaseAdmin.from("leads").update({ stage: next } as any).eq("id", currentLead.id);
+          await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_AUTODETECT", { lead_id: currentLead.id, from: cur, to: next, trigger: "inbound_keyword" });
+          currentLead.stage = next;
+        }
+      }
+    } catch (e: any) {
+      await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_DETECT_FAILED", { error: e?.message }, "warn");
+    }
+
 
     // ---- Risk gates ----
     const blocked: string[] = [];
@@ -776,10 +807,39 @@ async function generateAndSend(args: {
           { detected, appointment_id: apptRow?.id, error: apptErr?.message },
           apptErr ? "error" : "info",
         );
+        if (!apptErr && contact?.id) {
+          const { data: leadRow } = await supabaseAdmin
+            .from("leads").select("id, stage").eq("contact_id", contact.id).maybeSingle();
+          if (leadRow && leadRow.stage !== "won" && leadRow.stage !== "lost" && leadRow.stage !== "appointment_booked") {
+            await supabaseAdmin.from("leads")
+              .update({ stage: "appointment_booked", appointment_date: detected.datetime ?? null } as any)
+              .eq("id", leadRow.id);
+            await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_AUTODETECT", { lead_id: leadRow.id, to: "appointment_booked", trigger: "appointment_created" });
+          }
+        }
       }
     } catch (apptEx: any) {
       await logStep(supabaseAdmin, workspaceId, "APPOINTMENT_DETECT_ERROR", { error: apptEx?.message }, "error");
     }
+
+    // Outbound proposal detection: when AI sends a quote/proposal, advance to proposal stage.
+    try {
+      if (replyText && contact?.id) {
+        const outLower = replyText.toLowerCase();
+        if (/\b(quotation|proposal|here'?s\s*(the|your)\s*(quote|price)|attached\s*(quote|proposal)|invoice)\b/i.test(outLower)) {
+          const { data: leadRow } = await supabaseAdmin
+            .from("leads").select("id, stage").eq("contact_id", contact.id).maybeSingle();
+          const advanceable = leadRow && !["proposal", "negotiation", "won", "lost"].includes(leadRow.stage);
+          if (advanceable) {
+            await supabaseAdmin.from("leads").update({ stage: "proposal" } as any).eq("id", leadRow.id);
+            await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_AUTODETECT", { lead_id: leadRow.id, to: "proposal", trigger: "outbound_quote" });
+          }
+        }
+      }
+    } catch (e: any) {
+      await logStep(supabaseAdmin, workspaceId, "CRM_STAGE_DETECT_OUTBOUND_FAILED", { error: e?.message }, "warn");
+    }
+
 
     // Save outbound as pending
     const { data: outboundMsg } = await supabaseAdmin
