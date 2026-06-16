@@ -79,7 +79,8 @@ export const Route = createFileRoute("/api/public/hooks/lead-followups")({
             .in("status", ["pending", "sent"]);
           const taken = new Set((existing ?? []).map((r: any) => r.followup_type));
 
-          for (const tier of FOLLOWUP_TIERS) {
+          const tiers = tiersFor(testModeByWs.get((c as any).workspace_id) === true);
+          for (const tier of tiers) {
             if (idleMs < tier.thresholdMs) continue;
             if (taken.has(tier.type)) continue;
 
