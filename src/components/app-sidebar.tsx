@@ -15,6 +15,7 @@ import {
   Server,
   Settings,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import {
   Sidebar,
