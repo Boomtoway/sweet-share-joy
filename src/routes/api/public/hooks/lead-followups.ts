@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendViaVps, extractWhatsappSendNumber } from "@/lib/vps/send";
-import { FOLLOWUP_TIERS, followupMessage, type FollowupType } from "@/lib/followups/followups";
+import { tiersFor, followupMessage, PROD_FOLLOWUP_TIERS, TEST_FOLLOWUP_TIERS, type FollowupType } from "@/lib/followups/followups";
 
 // Cron-invoked every 30 minutes:
 //   1. Scan open conversations whose last activity is past a tier threshold.
