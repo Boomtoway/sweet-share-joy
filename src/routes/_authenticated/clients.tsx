@@ -53,7 +53,7 @@ function ClientsPage() {
   const createMut = useMutation({
     mutationFn: (data: any) => create({ data }),
     onSuccess: (res: any) => {
-      toast.success(res?.invite_sent ? "Client created — invite email sent" : "Client created");
+      toast.success(res?.invite_sent ? "Client and subscription created — invite email sent" : "Client and subscription created successfully");
       qc.invalidateQueries({ queryKey: ["admin-clients"] });
       setOpen(false);
     },
