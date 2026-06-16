@@ -7,6 +7,7 @@ import {
   listFollowups, sendFollowupNow, stopFollowups,
   getFollowupTestMode, setFollowupTestMode, runFollowupCheckNow,
   forceCreateTestFollowup, listConversationsForFollowup,
+  repairContacts, cleanupDuplicateContactsWithoutPhone,
 } from "@/lib/followups/followups.functions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Send, Loader2, StopCircle, FlaskConical, PlayCircle, Zap } from "lucide-react";
+import { Send, Loader2, StopCircle, FlaskConical, PlayCircle, Zap, Wrench, Trash2 } from "lucide-react";
+
+const VALID_WA = /^947\d{8}$/;
 
 export const Route = createFileRoute("/_authenticated/lead-followups")({
   component: FollowupsPage,
@@ -80,10 +83,13 @@ function FollowupsPage() {
   const runCheckFn = useServerFn(runFollowupCheckNow);
   const forceFn = useServerFn(forceCreateTestFollowup);
   const listConvsFn = useServerFn(listConversationsForFollowup);
+  const repairFn = useServerFn(repairContacts);
+  const cleanupFn = useServerFn(cleanupDuplicateContactsWithoutPhone);
 
   const qc = useQueryClient();
   const [tab, setTab] = useState("all");
   const [debugRows, setDebugRows] = useState<DebugRow[]>([]);
+  const [validOnly, setValidOnly] = useState(false);
   const [forceOpen, setForceOpen] = useState(false);
   const [forceConvId, setForceConvId] = useState<string>("");
 
@@ -147,6 +153,28 @@ function FollowupsPage() {
     },
     onError: (e: any) => toast.error(e?.message ?? "Force create failed"),
   });
+
+  const repair = useMutation({
+    mutationFn: () => repairFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Repaired ${r?.repaired ?? 0} contacts • ${r?.convs_updated ?? 0} conversations • scanned ${r?.scanned ?? 0}`);
+      qc.invalidateQueries({ queryKey: ["followup-conv-picker"] });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Repair failed"),
+  });
+
+  const cleanup = useMutation({
+    mutationFn: () => cleanupFn(),
+    onSuccess: (r: any) => {
+      toast.success(`Deleted ${r?.deleted ?? 0} empty contacts (skipped ${r?.skipped?.length ?? 0})`);
+      qc.invalidateQueries({ queryKey: ["followup-conv-picker"] });
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Cleanup failed"),
+  });
+
+
 
   const filtered = useMemo(() => ({
     all: rows,
@@ -213,43 +241,56 @@ function FollowupsPage() {
     </Card>
   );
 
-  const renderDebug = () => (
-    <Card>
-      <CardContent className="p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Last Customer Message</TableHead>
-              <TableHead>Minutes Since</TableHead>
-              <TableHead>Reason</TableHead>
-              <TableHead>Detail</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {debugRows.length === 0 && (
+  const renderDebug = () => {
+    const visible = validOnly ? debugRows.filter((r) => !!r.phone && VALID_WA.test(r.phone)) : debugRows;
+    return (
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between gap-2 px-4 py-2 border-b">
+            <div className="text-xs text-muted-foreground">
+              {validOnly ? `${visible.length} of ${debugRows.length} have valid WhatsApp numbers` : `${debugRows.length} scanned`}
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="valid-only" className="text-xs cursor-pointer">Valid WhatsApp only</Label>
+              <Switch id="valid-only" checked={validOnly} onCheckedChange={setValidOnly} />
+            </div>
+          </div>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  Click "Run Follow-up Check Now" to populate debug view.
-                </TableCell>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Last Customer Message</TableHead>
+                <TableHead>Minutes Since</TableHead>
+                <TableHead>Reason</TableHead>
+                <TableHead>Detail</TableHead>
               </TableRow>
-            )}
-            {debugRows.map((r, i) => (
-              <TableRow key={`${r.conversation_id}-${i}`}>
-                <TableCell className="font-medium">{r.name ?? "—"}</TableCell>
-                <TableCell>{r.phone ?? "—"}</TableCell>
-                <TableCell>{fmt(r.last_customer_message_at)}</TableCell>
-                <TableCell>{r.minutes_since_last_customer_message ?? "—"}</TableCell>
-                <TableCell><Badge variant={reasonVariant(r.reason)}>{r.reason}</Badge>{r.followup_type ? <span className="ml-2 text-xs text-muted-foreground">{TYPE_LABEL[r.followup_type] ?? r.followup_type}</span> : null}</TableCell>
-                <TableCell className="text-xs text-muted-foreground">{r.detail ?? "—"}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
+            </TableHeader>
+            <TableBody>
+              {visible.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    {debugRows.length === 0 ? `Click "Run Follow-up Check Now" to populate debug view.` : "No rows match the filter."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {visible.map((r, i) => (
+                <TableRow key={`${r.conversation_id}-${i}`}>
+                  <TableCell className="font-medium">{r.name ?? "—"}</TableCell>
+                  <TableCell>{r.phone ?? "—"}</TableCell>
+                  <TableCell>{fmt(r.last_customer_message_at)}</TableCell>
+                  <TableCell>{r.minutes_since_last_customer_message ?? "—"}</TableCell>
+                  <TableCell><Badge variant={reasonVariant(r.reason)}>{r.reason}</Badge>{r.followup_type ? <span className="ml-2 text-xs text-muted-foreground">{TYPE_LABEL[r.followup_type] ?? r.followup_type}</span> : null}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{r.detail ?? "—"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    );
+  };
+
 
   return (
     <div className="p-6 space-y-6">
@@ -271,6 +312,14 @@ function FollowupsPage() {
           <Button onClick={() => runCheck.mutate()} disabled={runCheck.isPending}>
             {runCheck.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <PlayCircle className="h-4 w-4 mr-2" />}
             Run Follow-up Check Now
+          </Button>
+          <Button variant="outline" onClick={() => repair.mutate()} disabled={repair.isPending}>
+            {repair.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Wrench className="h-4 w-4 mr-2" />}
+            Repair Contacts
+          </Button>
+          <Button variant="outline" onClick={() => { if (confirm("Delete contacts that have no phone, WhatsApp, sender number, or remote JID?")) cleanup.mutate(); }} disabled={cleanup.isPending}>
+            {cleanup.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Cleanup Empty Contacts
           </Button>
           <Dialog open={forceOpen} onOpenChange={setForceOpen}>
             <DialogTrigger asChild>

@@ -424,3 +424,104 @@ export const forceCreateTestFollowup = createServerFn({ method: "POST" })
     if (!result.ok) throw new Error(result.error ?? `VPS send failed (${result.status})`);
     return { ok: true, followup_id: inserted.id, phone };
   });
+
+export const repairContacts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const wsId = await workspaceId(context);
+
+    const { data: convs, error } = await context.supabase
+      .from("conversations")
+      .select("id, contact_id, remote_jid, whatsapp_number, sender_number, contact:contacts(id, phone, whatsapp_number, sender_number, remote_jid)")
+      .eq("workspace_id", wsId)
+      .limit(5000);
+    if (error) throw error;
+
+    let scanned = 0;
+    let repaired = 0;
+    let convsUpdated = 0;
+    const issues: Array<{ conversation_id: string; reason: string }> = [];
+
+    for (const c of convs ?? []) {
+      scanned++;
+      const contact: any = (c as any).contact;
+      const phone = extractWhatsappSendNumber(
+        (c as any).whatsapp_number, (c as any).sender_number, (c as any).remote_jid,
+        contact?.whatsapp_number, contact?.sender_number, contact?.phone, contact?.remote_jid,
+      );
+      if (!phone) { issues.push({ conversation_id: c.id, reason: "NO_EXTRACTABLE_PHONE" }); continue; }
+
+      if (contact) {
+        const updates: any = {};
+        if (!contact.whatsapp_number) updates.whatsapp_number = phone;
+        if (!contact.phone) updates.phone = phone;
+        if (!contact.sender_number && (c as any).sender_number) updates.sender_number = (c as any).sender_number;
+        if (!contact.remote_jid && (c as any).remote_jid) updates.remote_jid = (c as any).remote_jid;
+        if (Object.keys(updates).length > 0) {
+          const { error: uErr } = await context.supabase.from("contacts").update(updates).eq("id", contact.id).eq("workspace_id", wsId);
+          if (!uErr) repaired++;
+        }
+      }
+
+      const convUpdates: any = {};
+      if (!(c as any).whatsapp_number) convUpdates.whatsapp_number = phone;
+      if (Object.keys(convUpdates).length > 0) {
+        const { error: cErr } = await context.supabase.from("conversations").update(convUpdates).eq("id", c.id).eq("workspace_id", wsId);
+        if (!cErr) convsUpdated++;
+      }
+    }
+
+    await context.supabase.from("bot_logs").insert({
+      workspace_id: wsId, bot_name: "lead-followup", channel: "whatsapp",
+      level: "info", message: `REPAIR_CONTACTS scanned=${scanned} repaired=${repaired} convs_updated=${convsUpdated}`,
+      metadata: { manual: true, scanned, repaired, convs_updated: convsUpdated, issues: issues.slice(0, 50) },
+    } as any);
+
+    return { ok: true, scanned, repaired, convs_updated: convsUpdated, issues };
+  });
+
+export const cleanupDuplicateContactsWithoutPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const wsId = await workspaceId(context);
+
+    // Find contacts without any phone information.
+    const { data: empties, error } = await context.supabase
+      .from("contacts")
+      .select("id, name, created_at")
+      .eq("workspace_id", wsId)
+      .is("phone", null)
+      .is("whatsapp_number", null)
+      .is("sender_number", null)
+      .is("remote_jid", null);
+    if (error) throw error;
+
+    let deleted = 0;
+    const skipped: Array<{ id: string; reason: string }> = [];
+
+    for (const c of empties ?? []) {
+      // Skip if referenced by a conversation that has a phone (data may still be useful)
+      const { data: convs } = await context.supabase
+        .from("conversations")
+        .select("id, remote_jid, whatsapp_number, sender_number")
+        .eq("contact_id", c.id)
+        .limit(5);
+      const hasUsefulConv = (convs ?? []).some((cv: any) =>
+        extractWhatsappSendNumber(cv.whatsapp_number, cv.sender_number, cv.remote_jid),
+      );
+      if (hasUsefulConv) { skipped.push({ id: c.id, reason: "CONV_HAS_PHONE" }); continue; }
+
+      const { error: dErr } = await context.supabase
+        .from("contacts").delete().eq("id", c.id).eq("workspace_id", wsId);
+      if (dErr) skipped.push({ id: c.id, reason: dErr.message });
+      else deleted++;
+    }
+
+    await context.supabase.from("bot_logs").insert({
+      workspace_id: wsId, bot_name: "lead-followup", channel: "whatsapp",
+      level: "info", message: `CLEANUP_CONTACTS deleted=${deleted} skipped=${skipped.length}`,
+      metadata: { manual: true, deleted, skipped: skipped.slice(0, 50) },
+    } as any);
+
+    return { ok: true, deleted, skipped };
+  });
