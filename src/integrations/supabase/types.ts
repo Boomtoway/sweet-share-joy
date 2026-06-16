@@ -365,6 +365,39 @@ export type Database = {
           },
         ]
       }
+      client_notifications: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          message: string
+          metadata: Json
+          read: boolean
+          title: string
+          type: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json
+          read?: boolean
+          title: string
+          type?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json
+          read?: boolean
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           ai_enabled: boolean
