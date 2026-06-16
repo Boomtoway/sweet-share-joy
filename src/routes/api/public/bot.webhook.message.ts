@@ -454,6 +454,22 @@ export const Route = createFileRoute("/api/public/bot/webhook/message")({
             .eq("id", conv.id);
           conv.remote_jid = remote_jid;
 
+          // Auto-cancel pending follow-ups when the customer replies.
+          const { data: cancelled } = await supabaseAdmin
+            .from("lead_followups")
+            .update({ status: "cancelled" })
+            .eq("conversation_id", conv.id)
+            .eq("status", "pending")
+            .select("id, followup_type");
+          if (cancelled && cancelled.length > 0) {
+            queueLog(request, supabaseAdmin, workspaceId, "FOLLOWUP_AUTO_CANCELLED", {
+              conversation_id: conv.id,
+              count: cancelled.length,
+              types: cancelled.map((c: any) => c.followup_type),
+            });
+          }
+
+
           queueLog(request, supabaseAdmin, workspaceId, "inbound_saved", {
             conv_id: conv.id,
             conversation_remote_jid: remote_jid,

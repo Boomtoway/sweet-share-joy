@@ -19,6 +19,7 @@ import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/r
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedMessengerRouteImport } from './routes/_authenticated/messenger'
 import { Route as AuthenticatedLeadsRouteImport } from './routes/_authenticated/leads'
+import { Route as AuthenticatedLeadFollowupsRouteImport } from './routes/_authenticated/lead-followups'
 import { Route as AuthenticatedInstagramRouteImport } from './routes/_authenticated/instagram'
 import { Route as AuthenticatedHumanTakeoverRouteImport } from './routes/_authenticated/human-takeover'
 import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/debug'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authent
 import { Route as AuthenticatedApiSettingsRouteImport } from './routes/_authenticated/api-settings'
 import { Route as AuthenticatedAiSettingsRouteImport } from './routes/_authenticated/ai-settings'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta.webhook'
+import { Route as ApiPublicHooksLeadFollowupsRouteImport } from './routes/api/public/hooks/lead-followups'
 import { Route as ApiPublicHooksAppointmentRemindersRouteImport } from './routes/api/public/hooks/appointment-reminders'
 import { Route as ApiPublicBotDebugRouteImport } from './routes/api/public/bot.debug'
 import { Route as ApiPublicBotWebhookMessageRouteImport } from './routes/api/public/bot.webhook.message'
@@ -83,6 +85,12 @@ const AuthenticatedLeadsRoute = AuthenticatedLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedLeadFollowupsRoute =
+  AuthenticatedLeadFollowupsRouteImport.update({
+    id: '/lead-followups',
+    path: '/lead-followups',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedInstagramRoute = AuthenticatedInstagramRouteImport.update({
   id: '/instagram',
   path: '/instagram',
@@ -143,6 +151,12 @@ const ApiPublicMetaWebhookRoute = ApiPublicMetaWebhookRouteImport.update({
   path: '/api/public/meta/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksLeadFollowupsRoute =
+  ApiPublicHooksLeadFollowupsRouteImport.update({
+    id: '/api/public/hooks/lead-followups',
+    path: '/api/public/hooks/lead-followups',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksAppointmentRemindersRoute =
   ApiPublicHooksAppointmentRemindersRouteImport.update({
     id: '/api/public/hooks/appointment-reminders',
@@ -174,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/debug': typeof AuthenticatedDebugRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -183,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -199,6 +215,7 @@ export interface FileRoutesByTo {
   '/debug': typeof AuthenticatedDebugRoute
   '/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/instagram': typeof AuthenticatedInstagramRoute
+  '/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/leads': typeof AuthenticatedLeadsRoute
   '/messenger': typeof AuthenticatedMessengerRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -208,6 +225,7 @@ export interface FileRoutesByTo {
   '/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -226,6 +244,7 @@ export interface FileRoutesById {
   '/_authenticated/debug': typeof AuthenticatedDebugRoute
   '/_authenticated/human-takeover': typeof AuthenticatedHumanTakeoverRoute
   '/_authenticated/instagram': typeof AuthenticatedInstagramRoute
+  '/_authenticated/lead-followups': typeof AuthenticatedLeadFollowupsRoute
   '/_authenticated/leads': typeof AuthenticatedLeadsRoute
   '/_authenticated/messenger': typeof AuthenticatedMessengerRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
@@ -235,6 +254,7 @@ export interface FileRoutesById {
   '/_authenticated/whatsapp': typeof AuthenticatedWhatsappRoute
   '/api/public/bot/debug': typeof ApiPublicBotDebugRoute
   '/api/public/hooks/appointment-reminders': typeof ApiPublicHooksAppointmentRemindersRoute
+  '/api/public/hooks/lead-followups': typeof ApiPublicHooksLeadFollowupsRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/public/bot/webhook/message': typeof ApiPublicBotWebhookMessageRoute
 }
@@ -253,6 +273,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/human-takeover'
     | '/instagram'
+    | '/lead-followups'
     | '/leads'
     | '/messenger'
     | '/reply-rules'
@@ -262,6 +283,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesByTo: FileRoutesByTo
@@ -278,6 +300,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/human-takeover'
     | '/instagram'
+    | '/lead-followups'
     | '/leads'
     | '/messenger'
     | '/reply-rules'
@@ -287,6 +310,7 @@ export interface FileRouteTypes {
     | '/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   id:
@@ -304,6 +328,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debug'
     | '/_authenticated/human-takeover'
     | '/_authenticated/instagram'
+    | '/_authenticated/lead-followups'
     | '/_authenticated/leads'
     | '/_authenticated/messenger'
     | '/_authenticated/reply-rules'
@@ -313,6 +338,7 @@ export interface FileRouteTypes {
     | '/_authenticated/whatsapp'
     | '/api/public/bot/debug'
     | '/api/public/hooks/appointment-reminders'
+    | '/api/public/hooks/lead-followups'
     | '/api/public/meta/webhook'
     | '/api/public/bot/webhook/message'
   fileRoutesById: FileRoutesById
@@ -323,6 +349,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicBotDebugRoute: typeof ApiPublicBotDebugRoute
   ApiPublicHooksAppointmentRemindersRoute: typeof ApiPublicHooksAppointmentRemindersRoute
+  ApiPublicHooksLeadFollowupsRoute: typeof ApiPublicHooksLeadFollowupsRoute
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiPublicBotWebhookMessageRoute: typeof ApiPublicBotWebhookMessageRoute
 }
@@ -397,6 +424,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof AuthenticatedLeadsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lead-followups': {
+      id: '/_authenticated/lead-followups'
+      path: '/lead-followups'
+      fullPath: '/lead-followups'
+      preLoaderRoute: typeof AuthenticatedLeadFollowupsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/instagram': {
@@ -476,6 +510,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/lead-followups': {
+      id: '/api/public/hooks/lead-followups'
+      path: '/api/public/hooks/lead-followups'
+      fullPath: '/api/public/hooks/lead-followups'
+      preLoaderRoute: typeof ApiPublicHooksLeadFollowupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/appointment-reminders': {
       id: '/api/public/hooks/appointment-reminders'
       path: '/api/public/hooks/appointment-reminders'
@@ -511,6 +552,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDebugRoute: typeof AuthenticatedDebugRoute
   AuthenticatedHumanTakeoverRoute: typeof AuthenticatedHumanTakeoverRoute
   AuthenticatedInstagramRoute: typeof AuthenticatedInstagramRoute
+  AuthenticatedLeadFollowupsRoute: typeof AuthenticatedLeadFollowupsRoute
   AuthenticatedLeadsRoute: typeof AuthenticatedLeadsRoute
   AuthenticatedMessengerRoute: typeof AuthenticatedMessengerRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
@@ -531,6 +573,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDebugRoute: AuthenticatedDebugRoute,
   AuthenticatedHumanTakeoverRoute: AuthenticatedHumanTakeoverRoute,
   AuthenticatedInstagramRoute: AuthenticatedInstagramRoute,
+  AuthenticatedLeadFollowupsRoute: AuthenticatedLeadFollowupsRoute,
   AuthenticatedLeadsRoute: AuthenticatedLeadsRoute,
   AuthenticatedMessengerRoute: AuthenticatedMessengerRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
@@ -550,6 +593,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBotDebugRoute: ApiPublicBotDebugRoute,
   ApiPublicHooksAppointmentRemindersRoute:
     ApiPublicHooksAppointmentRemindersRoute,
+  ApiPublicHooksLeadFollowupsRoute: ApiPublicHooksLeadFollowupsRoute,
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiPublicBotWebhookMessageRoute: ApiPublicBotWebhookMessageRoute,
 }
