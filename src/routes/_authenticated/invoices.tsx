@@ -69,9 +69,9 @@ function InvoicesPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await (supabase as any).auth.getUser();
       if (!auth.user) return;
-      const { data: p } = await supabase.from("profiles").select("workspace_id").eq("id", auth.user.id).single();
+      const { data: p } = await (supabase as any).from("profiles").select("workspace_id").eq("id", auth.user.id).single();
       if (p?.workspace_id) setWorkspaceId(p.workspace_id);
     })();
   }, []);
@@ -101,7 +101,7 @@ function InvoicesPage() {
   }, [rows]);
 
   const updateInvoice = async (id: string, patch: Partial<Invoice>) => {
-    const { error } = await supabase.from("invoices").update(patch as any).eq("id", id);
+    const { error } = await (supabase as any).from("invoices").update(patch as any).eq("id", id);
     if (error) { toast.error(error.message); return false; }
     if (workspaceId) load(workspaceId);
     return true;

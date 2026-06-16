@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/public/hooks/invoice-reminders")({
 
           const result = await sendViaVps(phone, msg);
 
-          await supabaseAdmin.from("bot_logs").insert({
+          await (supabaseAdmin as any).from("bot_logs").insert({
             workspace_id: inv.workspace_id,
             bot_name: "invoice-reminder",
             channel: "whatsapp",
@@ -62,7 +62,7 @@ export const Route = createFileRoute("/api/public/hooks/invoice-reminders")({
           } as any);
 
           if (result.ok) {
-            await supabaseAdmin.from("invoices").update({
+            await (supabaseAdmin as any).from("invoices").update({
               last_reminder_at: new Date().toISOString(),
               reminder_stage: stage,
             } as any).eq("id", inv.id);
