@@ -43,6 +43,7 @@ interface Lead {
   service_interest: string | null;
   source: string | null;
   notes: string | null;
+  last_message: string | null;
   appointment_date: string | null;
   follow_up_date: string | null;
   stage_changed_at: string | null;
