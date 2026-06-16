@@ -1033,6 +1033,56 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          client_id: string
+          created_at: string
+          expiry_date: string | null
+          id: string
+          max_bots: number | null
+          max_messages: number | null
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          price_lkr: number
+          start_date: string
+          status: Database["public"]["Enums"]["subscription_status"]
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          max_bots?: number | null
+          max_messages?: number | null
+          plan: Database["public"]["Enums"]["subscription_plan"]
+          price_lkr: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          expiry_date?: string | null
+          id?: string
+          max_bots?: number | null
+          max_messages?: number | null
+          plan?: Database["public"]["Enums"]["subscription_plan"]
+          price_lkr?: number
+          start_date?: string
+          status?: Database["public"]["Enums"]["subscription_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1182,6 +1232,14 @@ export type Database = {
         Returns: boolean
       }
       owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
+      subscription_plan_defaults: {
+        Args: { _plan: Database["public"]["Enums"]["subscription_plan"] }
+        Returns: {
+          max_bots: number
+          max_messages: number
+          price_lkr: number
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "client"
@@ -1211,6 +1269,8 @@ export type Database = {
       message_direction: "inbound" | "outbound"
       message_sender: "contact" | "ai" | "human" | "system"
       risk_severity: "low" | "medium" | "high" | "critical"
+      subscription_plan: "starter" | "growth" | "agency"
+      subscription_status: "active" | "expired" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1367,6 +1427,8 @@ export const Constants = {
       message_direction: ["inbound", "outbound"],
       message_sender: ["contact", "ai", "human", "system"],
       risk_severity: ["low", "medium", "high", "critical"],
+      subscription_plan: ["starter", "growth", "agency"],
+      subscription_status: ["active", "expired", "cancelled"],
     },
   },
 } as const
