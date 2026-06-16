@@ -365,7 +365,11 @@ function CrmPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Stage">
-                  <Select value={active.stage} onValueChange={(v) => saveActive({ stage: v as Stage })}>
+                  <Select value={active.stage} onValueChange={(v) => {
+                    const s = v as Stage;
+                    if (s === "won") { moveStage(active.id, s); setActive(null); }
+                    else saveActive({ stage: s });
+                  }}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>{STAGES.map((s) => <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>)}</SelectContent>
                   </Select>
