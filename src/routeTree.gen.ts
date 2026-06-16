@@ -18,6 +18,7 @@ import { Route as AuthenticatedSubscriptionsRouteImport } from './routes/_authen
 import { Route as AuthenticatedSubscriptionExpiredRouteImport } from './routes/_authenticated/subscription-expired'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRiskRouteImport } from './routes/_authenticated/risk'
+import { Route as AuthenticatedRevenueAnalyticsRouteImport } from './routes/_authenticated/revenue-analytics'
 import { Route as AuthenticatedRevenueRouteImport } from './routes/_authenticated/revenue'
 import { Route as AuthenticatedReplyRulesRouteImport } from './routes/_authenticated/reply-rules'
 import { Route as AuthenticatedPaymentsRouteImport } from './routes/_authenticated/payments'
@@ -92,6 +93,12 @@ const AuthenticatedRiskRoute = AuthenticatedRiskRouteImport.update({
   path: '/risk',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRevenueAnalyticsRoute =
+  AuthenticatedRevenueAnalyticsRouteImport.update({
+    id: '/revenue-analytics',
+    path: '/revenue-analytics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRevenueRoute = AuthenticatedRevenueRouteImport.update({
   id: '/revenue',
   path: '/revenue',
@@ -262,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/payments': typeof AuthenticatedPaymentsRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/revenue': typeof AuthenticatedRevenueRoute
+  '/revenue-analytics': typeof AuthenticatedRevenueAnalyticsRoute
   '/risk': typeof AuthenticatedRiskRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
@@ -299,6 +307,7 @@ export interface FileRoutesByTo {
   '/payments': typeof AuthenticatedPaymentsRoute
   '/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/revenue': typeof AuthenticatedRevenueRoute
+  '/revenue-analytics': typeof AuthenticatedRevenueAnalyticsRoute
   '/risk': typeof AuthenticatedRiskRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
@@ -338,6 +347,7 @@ export interface FileRoutesById {
   '/_authenticated/payments': typeof AuthenticatedPaymentsRoute
   '/_authenticated/reply-rules': typeof AuthenticatedReplyRulesRoute
   '/_authenticated/revenue': typeof AuthenticatedRevenueRoute
+  '/_authenticated/revenue-analytics': typeof AuthenticatedRevenueAnalyticsRoute
   '/_authenticated/risk': typeof AuthenticatedRiskRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/subscription-expired': typeof AuthenticatedSubscriptionExpiredRoute
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/payments'
     | '/reply-rules'
     | '/revenue'
+    | '/revenue-analytics'
     | '/risk'
     | '/settings'
     | '/subscription-expired'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/payments'
     | '/reply-rules'
     | '/revenue'
+    | '/revenue-analytics'
     | '/risk'
     | '/settings'
     | '/subscription-expired'
@@ -452,6 +464,7 @@ export interface FileRouteTypes {
     | '/_authenticated/payments'
     | '/_authenticated/reply-rules'
     | '/_authenticated/revenue'
+    | '/_authenticated/revenue-analytics'
     | '/_authenticated/risk'
     | '/_authenticated/settings'
     | '/_authenticated/subscription-expired'
@@ -543,6 +556,13 @@ declare module '@tanstack/react-router' {
       path: '/risk'
       fullPath: '/risk'
       preLoaderRoute: typeof AuthenticatedRiskRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/revenue-analytics': {
+      id: '/_authenticated/revenue-analytics'
+      path: '/revenue-analytics'
+      fullPath: '/revenue-analytics'
+      preLoaderRoute: typeof AuthenticatedRevenueAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/revenue': {
@@ -758,6 +778,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPaymentsRoute: typeof AuthenticatedPaymentsRoute
   AuthenticatedReplyRulesRoute: typeof AuthenticatedReplyRulesRoute
   AuthenticatedRevenueRoute: typeof AuthenticatedRevenueRoute
+  AuthenticatedRevenueAnalyticsRoute: typeof AuthenticatedRevenueAnalyticsRoute
   AuthenticatedRiskRoute: typeof AuthenticatedRiskRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSubscriptionExpiredRoute: typeof AuthenticatedSubscriptionExpiredRoute
@@ -787,6 +808,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPaymentsRoute: AuthenticatedPaymentsRoute,
   AuthenticatedReplyRulesRoute: AuthenticatedReplyRulesRoute,
   AuthenticatedRevenueRoute: AuthenticatedRevenueRoute,
+  AuthenticatedRevenueAnalyticsRoute: AuthenticatedRevenueAnalyticsRoute,
   AuthenticatedRiskRoute: AuthenticatedRiskRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSubscriptionExpiredRoute: AuthenticatedSubscriptionExpiredRoute,
